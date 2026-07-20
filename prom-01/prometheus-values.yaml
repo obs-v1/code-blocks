@@ -1,0 +1,19 @@
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+alertmanager:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
