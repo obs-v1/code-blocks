@@ -1,0 +1,28 @@
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+  # ── First static target ────────────────────────────────────────────────────
+  # The key below becomes the job_name. Point it at a host running node_exporter
+  # (default port 9100). Add more 'targets:' lines to scrape several servers.
+  my-static-server:
+    enabled: true
+    static_configs:
+      - targets:
+          - "172.31.29.33:9100"     # ← replace with your server's IP or hostname
+
+alertmanager:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
