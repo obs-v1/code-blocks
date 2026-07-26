@@ -15,7 +15,7 @@ ss -lntp
 
 ```bash
 # Download the prometheus input file 
-curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/prom-01/prometheus-values.yaml
+curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/prom-02/prometheus-values.yaml
 
 # Update the IP address of static config
 
