@@ -29,11 +29,12 @@ pushes its samples to a second, central Prometheus.
 ## Run
 
 ```bash
-terraform init
-terraform apply
+make setup      # init + apply (or just `make`)
 ```
 
 State is local (`terraform.tfstate`) — nothing remote.
+
+Other targets: `make output` (IPs / UI URLs), `make plan`, `make fmt`.
 
 ## Verify the demo
 
@@ -47,5 +48,5 @@ State is local (`terraform.tfstate`) — nothing remote.
 ## Tear down
 
 ```bash
-terraform destroy
+make destroy
 ```
