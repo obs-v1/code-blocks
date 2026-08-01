@@ -11,7 +11,7 @@ chmod +x /usr/local/bin/cortex
 
 # user + data dirs
 id cortex &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin cortex
-mkdir -p /etc/cortex /var/lib/cortex
+mkdir -p /etc/cortex /var/lib/cortex /var/lib/cortex/active-query-tracker
 
 # config was uploaded to /tmp by terraform
 mv /tmp/cortex.yaml /etc/cortex/cortex.yaml
@@ -26,6 +26,7 @@ After=network-online.target
 User=cortex
 Group=cortex
 Type=simple
+WorkingDirectory=/var/lib/cortex
 ExecStart=/usr/local/bin/cortex -config.file=/etc/cortex/cortex.yaml
 Restart=on-failure
 LimitNOFILE=65536

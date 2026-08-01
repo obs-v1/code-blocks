@@ -20,14 +20,18 @@ ingester_client:
 
 ingester:
   lifecycler:
+    address: 127.0.0.1         # pin it - EC2 nics arent eth0/en0, autodiscovery fails
     join_after: 0s
     final_sleep: 0s
     num_tokens: 512
     ring:
-      # in-memory ring so we don't need Consul for a single node
       kvstore:
         store: inmemory
       replication_factor: 1
+
+querier:
+  # keep the active-query log on a writable path (service runs as the cortex user)
+  active_query_tracker_dir: /var/lib/cortex/active-query-tracker
 
 blocks_storage:
   backend: filesystem
@@ -41,6 +45,13 @@ blocks_storage:
 compactor:
   data_dir: /var/lib/cortex/compactor
   sharding_ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+store_gateway:
+  sharding_ring:
+    instance_addr: 127.0.0.1
     kvstore:
       store: inmemory
 
