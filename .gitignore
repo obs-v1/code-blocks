@@ -15,7 +15,9 @@ crash.*.log
 # CLI config
 .terraformrc
 terraform.rc
-# NOTE: .terraform.lock.hcl is intentionally NOT ignored - commit it.
+# provider lock file - ignore in every folder, at any depth
+**/.terraform.lock.hcl
+.terraform.lock.hcl
 
 # --- OS / editor cruft ---
 .DS_Store
