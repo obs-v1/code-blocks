@@ -12,6 +12,9 @@ scrapeConfigs:
   prometheus-pushgateway:            { enabled: false }
 
 server:
+  service:                             # expose the UI on the kind host-port mapping
+    type: NodePort
+    nodePort: 30990                    # kind maps host :9090 -> this NodePort
   global:
     external_labels:
       prom_server: kind-prom          # so you can tell this source apart in Cortex
