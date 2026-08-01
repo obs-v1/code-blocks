@@ -1,0 +1,22 @@
+# --- Terraform ---
+# provider binaries / working dir
+**/.terraform/
+# local state (never commit - may hold secrets and live infra ids)
+*.tfstate
+*.tfstate.*
+# crash logs
+crash.log
+crash.*.log
+# variable files often carry secrets
+*.tfvars
+*.tfvars.json
+# CLI config
+.terraformrc
+terraform.rc
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored - commit it.
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
