@@ -38,7 +38,7 @@ live cortex IP already filled in. Use it in a kind cluster:
 
 ```bash
 helm upgrade -i prometheus prometheus-community/prometheus -n monitoring --create-namespace \
-    -f ./prometheus-values-cortex.rendered.yaml
+    -f https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.7/prometheus-values-cortex.yaml
 ```
 
 (The committed `prometheus-values-cortex.yaml` is the same thing with a
