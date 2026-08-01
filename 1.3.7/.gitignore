@@ -1,0 +1,7 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+# the IP-filled values file is generated per-apply
+*.rendered.yaml

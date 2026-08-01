@@ -1,0 +1,29 @@
+# Prometheus (kind/helm) that remote_writes into the Cortex box for long-term storage.
+#
+# This is the reference copy - replace the IP placeholder with the cortex EC2 public IP
+# (`terraform output cortex_public_ip`). Or just use prometheus-values-cortex.rendered.yaml,
+# which `make setup` / `terraform apply` writes out with the IP already filled in.
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+server:
+  global:
+    external_labels:
+      prom_server: kind-prom          # so you can tell this source apart in Cortex
+  remoteWrite:                         # <-- ships every sample off to Cortex
+    - url: http://REPLACE_WITH_CORTEX_PUBLIC_IP:9009/api/v1/push
+      headers:
+        X-Scope-OrgID: demo           # Cortex is multi-tenant; this names the tenant
+
+alertmanager:             { enabled: false }
+prometheus-node-exporter: { enabled: false }
+kube-state-metrics:       { enabled: false }
+prometheus-pushgateway:   { enabled: false }

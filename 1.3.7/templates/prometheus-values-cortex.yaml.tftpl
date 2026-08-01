@@ -1,0 +1,26 @@
+# Prometheus (kind/helm) that remote_writes into the Cortex box for long-term storage.
+# Auto-rendered by terraform with the live cortex IP - just point helm at this file.
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+server:
+  global:
+    external_labels:
+      prom_server: kind-prom          # so you can tell this source apart in Cortex
+  remoteWrite:                         # <-- ships every sample off to Cortex
+    - url: http://${cortex_ip}:9009/api/v1/push
+      headers:
+        X-Scope-OrgID: demo           # Cortex is multi-tenant; this names the tenant
+
+alertmanager:             { enabled: false }
+prometheus-node-exporter: { enabled: false }
+kube-state-metrics:       { enabled: false }
+prometheus-pushgateway:   { enabled: false }

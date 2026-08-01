@@ -1,0 +1,48 @@
+# Single-process Cortex for the lab - blocks storage on local disk.
+# Everything runs in one binary with an in-memory ring; NOT for production.
+auth_enabled: false          # no X-Scope-OrgID required; a default tenant is used
+
+server:
+  http_listen_port: 9009     # remote_write push + prometheus query API land here
+  grpc_listen_port: 9095
+  grpc_server_max_recv_msg_size: 104857600
+  grpc_server_max_send_msg_size: 104857600
+
+distributor:
+  pool:
+    health_check_ingesters: true
+
+ingester_client:
+  grpc_client_config:
+    max_recv_msg_size: 104857600
+    max_send_msg_size: 104857600
+    grpc_compression: gzip
+
+ingester:
+  lifecycler:
+    join_after: 0s
+    final_sleep: 0s
+    num_tokens: 512
+    ring:
+      # in-memory ring so we don't need Consul for a single node
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /var/lib/cortex/blocks
+  tsdb:
+    dir: /var/lib/cortex/tsdb
+  bucket_store:
+    sync_dir: /var/lib/cortex/tsdb-sync
+
+compactor:
+  data_dir: /var/lib/cortex/compactor
+  sharding_ring:
+    kvstore:
+      store: inmemory
+
+frontend_worker:
+  match_max_concurrent: true
