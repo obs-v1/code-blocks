@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# installs prometheus + runs it under systemd
+# pass "receiver" as $1 to turn on the remote_write receiver endpoint
+set -euo pipefail
+
+PROM_VERSION="${prom_version}"
+ARCH="linux-amd64"
+MODE="$${1:-}"
+
+cd /tmp
+curl -sfLO "https://github.com/prometheus/prometheus/releases/download/v$${PROM_VERSION}/prometheus-$${PROM_VERSION}.$${ARCH}.tar.gz"
+tar xzf "prometheus-$${PROM_VERSION}.$${ARCH}.tar.gz"
+SRC="prometheus-$${PROM_VERSION}.$${ARCH}"
+
+# binaries
+install -m 0755 "$${SRC}/prometheus"   /usr/local/bin/prometheus
+install -m 0755 "$${SRC}/promtool"     /usr/local/bin/promtool
+
+# dirs + user
+id prometheus &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin prometheus
+mkdir -p /etc/prometheus /var/lib/prometheus
+cp -r "$${SRC}/consoles" "$${SRC}/console_libraries" /etc/prometheus/ 2>/dev/null || true
+
+# config was uploaded to /tmp/prometheus.yml by terraform
+mv /tmp/prometheus.yml /etc/prometheus/prometheus.yml
+chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+
+# server B needs the receiver flag so it can accept A's remote_write
+EXTRA_FLAGS=""
+if [ "$${MODE}" = "receiver" ]; then
+  EXTRA_FLAGS="--web.enable-remote-write-receiver"
+fi
+
+cat > /etc/systemd/system/prometheus.service <<UNIT
+[Unit]
+Description=Prometheus
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus \
+  --web.listen-address=0.0.0.0:9090 \
+  $${EXTRA_FLAGS}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now prometheus
+
+echo "prometheus $${PROM_VERSION} is up on :9090 (mode: $${MODE:-scrape-only})"

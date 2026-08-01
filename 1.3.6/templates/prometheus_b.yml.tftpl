@@ -1,0 +1,12 @@
+# prom-server-B : the central receiver. It only scrapes itself - everything
+# else lands here via A's remote_write (needs --web.enable-remote-write-receiver,
+# which the install script turns on for this box).
+global:
+  scrape_interval: 15s
+  external_labels:
+    prom_server: server-b
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

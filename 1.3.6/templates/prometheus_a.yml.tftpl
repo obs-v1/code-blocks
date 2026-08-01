@@ -1,0 +1,19 @@
+# prom-server-A : scrapes the node-exporter box (and itself), then
+# forwards every sample it collects to prom-server-B over remote_write.
+global:
+  scrape_interval: 15s
+  external_labels:
+    prom_server: server-a          # so B can tell A's data apart
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["${node_exporter_ip}:9100"]
+
+# this is the piece the lab is about - push A's TSDB out to B
+remote_write:
+  - url: http://${remote_write_ip}:9090/api/v1/write
