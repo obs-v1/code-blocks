@@ -10,6 +10,8 @@ crash.*.log
 # variable files often carry secrets
 *.tfvars
 *.tfvars.json
+# generated per-apply (e.g. values files with a live IP baked in)
+*.rendered.yaml
 # CLI config
 .terraformrc
 terraform.rc
