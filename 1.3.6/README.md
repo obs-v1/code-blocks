@@ -45,6 +45,24 @@ Other targets: `make output` (IPs / UI URLs), `make plan`, `make fmt`.
 3. Check the `prom_server="server-a"` external label on those series to confirm
    they came from A.
 
+## Helm / kind alternative
+
+Same demo without EC2 — two Prometheus releases in a kind cluster. Bring up **B**
+(the receiver) first, then **A** (the forwarder), so B is listening before A pushes:
+
+```bash
+# B - the receiver (turns on --web.enable-remote-write-receiver)
+helm upgrade -i prom-b prometheus-community/prometheus -n monitoring --create-namespace \
+    -f https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.6/prometheus-values-server-b.yaml
+
+# A - the forwarder (remote_writes to http://prom-b-server/api/v1/write)
+helm upgrade -i prom-a prometheus-community/prometheus -n monitoring \
+    -f https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.6/prometheus-values-server-a.yaml
+```
+
+Then port-forward `prom-b-server` and query `prometheus_build_info` — you'll see A's
+series (`prom_server="server-a"`) even though B never scraped them.
+
 ## Tear down
 
 ```bash
