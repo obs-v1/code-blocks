@@ -1,0 +1,80 @@
+# Lab-sized PRODUCTION topology of Grafana Mimir on Kubernetes (single-node kind).
+# Real microservices split + object storage + gossip ring + RF3 - trimmed to fit
+# one node.
+#   chart: grafana/mimir-distributed 6.1.0   (Mimir app v3.1.2)
+#   helm upgrade -i mimir grafana/mimir-distributed -n mimir --create-namespace \
+#        --version 6.1.0 -f mimir-values.yaml
+#
+# What stays "prod": distributor / ingester (RF3) / querier / query-frontend /
+# query-scheduler / store-gateway / compactor as separate workloads, a memberlist
+# gossip ring, object storage, and the memcached caches. What we shrink for a lab:
+# replica counts on the stateless parts, cache memory, and zone-aware replication
+# (one node can't spread three zones), so every pod schedules on the single box.
+
+mimir:
+  structuredConfig:
+    multitenancy_enabled: true            # require X-Scope-OrgID on every request
+    limits:
+      compactor_blocks_retention_period: 90d
+
+# --- object storage: bundled MinIO (real prod -> external S3 / GCS / Azure) ---
+# The chart pre-creates the mimir-tsdb / mimir-ruler buckets and wires Mimir's
+# blocks_storage at them automatically.
+minio:
+  enabled: true
+  persistence:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# --- write path ---
+distributor:
+  replicas: 2
+
+ingester:
+  replicas: 3                             # keep the RF 3 story
+  zoneAwareReplication:
+    enabled: false                        # single node: one statefulset, 3 replicas
+
+# --- read path ---
+querier:
+  replicas: 2
+
+query_frontend:
+  replicas: 1
+
+query_scheduler:
+  replicas: 1
+
+store_gateway:
+  replicas: 1
+  zoneAwareReplication:
+    enabled: false
+
+# --- background ---
+compactor:
+  replicas: 1
+
+# --- entry point: nginx gateway in front of the components ---
+gateway:
+  replicas: 1
+
+# --- memcached caches: part of the prod shape, shrunk for the lab (MB) ---
+chunks-cache:
+  allocatedMemory: 512
+index-cache:
+  allocatedMemory: 512
+metadata-cache:
+  allocatedMemory: 128
+results-cache:
+  allocatedMemory: 256
+
+# not needed for this demo
+ruler:
+  enabled: false
+alertmanager:
+  enabled: false
+overrides_exporter:
+  enabled: false
