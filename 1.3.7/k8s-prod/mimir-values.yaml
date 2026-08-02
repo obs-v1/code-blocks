@@ -58,8 +58,15 @@ compactor:
   replicas: 1
 
 # --- entry point: nginx gateway in front of the components ---
+# Exposed as a NodePort so the VM's kind host-port mapping (host 9090 ->
+# nodePort 30990) makes it reachable at http://<vm-ip>:9090. The gateway is
+# the single push+query endpoint for the whole cluster.
 gateway:
   replicas: 1
+  service:
+    type: NodePort
+    nodePort: 30990          # kind maps host :9090 -> this nodePort
+    legacyPort: null         # drop the deprecated :8080 aux port
 
 # --- memcached caches: part of the prod shape, shrunk for the lab (MB) ---
 chunks-cache:

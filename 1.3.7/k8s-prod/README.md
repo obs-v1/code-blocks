@@ -66,14 +66,37 @@ Wait for pods (first boot churns for ~1–2 min while the ring forms):
 kubectl -n mimir get pods
 ```
 
-## Endpoints (in-cluster)
+## Endpoints
 
-The `mimir-gateway` service is the single entry point for both push and query:
+The `mimir-gateway` service is the single entry point for both push and query.
+
+**In-cluster:**
 
 ```
 push :  http://mimir-gateway.mimir.svc/api/v1/push
 query:  http://mimir-gateway.mimir.svc/prometheus/api/v1/query
 ```
+
+**From outside the cluster (NodePort).** The values file sets the gateway
+service to `type: NodePort, nodePort: 30990`. On this kind cluster the node
+container publishes host `9090 -> nodePort 30990`, so the gateway is reachable
+on the VM's IP at port **9090**:
+
+```
+push :  http://<vm-ip>:9090/api/v1/push
+query:  http://<vm-ip>:9090/prometheus/api/v1/query
+```
+
+> The NodePort only reaches the host because kind was created with an
+> `extraPortMappings` entry for host 9090. On a normal cluster you'd front the
+> gateway with an Ingress or LoadBalancer instead (`gateway.ingress` /
+> `gateway.service.type: LoadBalancer` in the values).
+>
+> **Security note.** This publishes an *unauthenticated, multi-tenant* endpoint
+> on the VM — anyone who can reach `:9090` can push or read any tenant by
+> setting `X-Scope-OrgID`. Fine for a throwaway lab box behind a locked-down
+> security group; in production put real auth (the gateway/an external proxy) in
+> front and don't expose it raw.
 
 ## Verify
 
@@ -111,4 +134,6 @@ kubectl delete ns mimir
 **Verified 2026-08-02** on a single-node kind cluster (k8s v1.36, 16 CPU /
 123 Gi): all 15 workloads Ready, ingester ring 3× ACTIVE, and an in-cluster
 Prometheus round-tripped `up{prom_server="in-cluster-test"}` through the gateway
-into Mimir and back out via the query API.
+into Mimir and back out via the query API. The NodePort was also confirmed
+reachable from outside the VM: `:9090/ready` → 200, query API → 200, push
+endpoint → 400 on an empty body (reachable).
