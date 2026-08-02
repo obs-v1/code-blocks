@@ -1,20 +1,20 @@
-output "cortex_public_ip" {
-  description = "Public IP of the Cortex box"
-  value       = aws_instance.cortex.public_ip
+output "mimir_public_ip" {
+  description = "Public IP of the Mimir box"
+  value       = aws_instance.mimir.public_ip
 }
 
-output "cortex_private_ip" {
-  value = aws_instance.cortex.private_ip
+output "mimir_private_ip" {
+  value = aws_instance.mimir.private_ip
 }
 
 output "remote_write_url" {
   description = "Point your Prometheus remote_write here"
-  value       = "http://${aws_instance.cortex.public_ip}:9009/api/v1/push"
+  value       = "http://${aws_instance.mimir.public_ip}:9009/api/v1/push"
 }
 
 output "query_url" {
-  description = "Cortex speaks the Prometheus query API"
-  value       = "http://${aws_instance.cortex.public_ip}:9009/prometheus/api/v1/query?query=up"
+  description = "Mimir speaks the Prometheus query API (send header X-Scope-OrgID: demo)"
+  value       = "http://${aws_instance.mimir.public_ip}:9009/prometheus/api/v1/query?query=up"
 }
 
 output "values_file" {

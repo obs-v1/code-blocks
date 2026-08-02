@@ -27,7 +27,7 @@ variable "ssh_password" {
   # throwaway lab box, so leaving it in defaults
 }
 
-variable "cortex_version" {
+variable "mimir_version" {
   type    = string
-  default = "1.16.1"
+  default = "2.14.2"
 }
