@@ -1,4 +1,4 @@
-# 1.3.13 — the opt-in annotation pattern
+# 1.3.15 — the opt-in annotation pattern
 
 A working demo of the pattern from the doc: workloads **declare themselves** with
 `prometheus.io/scrape` annotations, and Prometheus discovers every pod but

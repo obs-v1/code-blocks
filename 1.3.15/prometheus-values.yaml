@@ -1,4 +1,4 @@
-# 1.3.13 — the opt-in annotation pattern, as a working Prometheus config.
+# 1.3.15 — the opt-in annotation pattern, as a working Prometheus config.
 #
 # kubernetes_sd discovers EVERY pod; relabeling then KEEPS only the pods that
 # opted in with prometheus.io/scrape="true" and scrapes the port/path they

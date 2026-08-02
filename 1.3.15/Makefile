@@ -1,4 +1,4 @@
-# 1.3.13 — opt-in annotation pattern demo
+# 1.3.15 — opt-in annotation pattern demo
 #
 #   make            # deploy Prometheus + the two demo apps
 #   make verify     # prove only the annotated pod is scraped
