@@ -1,0 +1,30 @@
+# 1.5.1 — Grafana with a PROVISIONED datasource.
+#
+# Grafana stores nothing; it reads from datasources. Here we add the Prometheus
+# datasource the production way — from a file that Grafana loads on startup, not
+# by clicking through the UI — and we give it a STABLE UID. Any dashboard that
+# references `uid: prometheus` then works unchanged in every environment.
+#
+# The `datasources:` block below IS the provisioning file (the chart writes it to
+# /etc/grafana/provisioning/datasources/ inside the pod).
+
+service:
+  type: NodePort
+  nodePort: 31300            # kind maps host :13000 -> this nodePort
+
+adminUser: admin
+adminPassword: admin         # lab only — change for anything real
+
+persistence:
+  enabled: false             # keep the lab stateless
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus       # stable UID — dashboards reference THIS, not the name
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc
+        isDefault: true
