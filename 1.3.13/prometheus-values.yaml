@@ -1,0 +1,59 @@
+# 1.3.13 — the opt-in annotation pattern, as a working Prometheus config.
+#
+# kubernetes_sd discovers EVERY pod; relabeling then KEEPS only the pods that
+# opted in with prometheus.io/scrape="true" and scrapes the port/path they
+# declared. Nothing in Prometheus changes when a team ships a new service —
+# they just add the annotation.
+
+server:
+  service:
+    type: NodePort
+    nodePort: 30990          # kind maps host :9090 -> this nodePort
+  global:
+    scrape_interval: 15s
+
+# Turn OFF the chart's bundled scrape jobs so the ONLY job is our annotation one
+# — the relabel rules below are the whole lesson, kept easy to read.
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+# The opt-in annotation scrape job — this is the teaching artifact.
+extraScrapeConfigs: |
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      # 1) keep ONLY pods that opted in:  prometheus.io/scrape: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      # 2) use the declared metrics path (prometheus.io/path); default stays /metrics
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      # 3) scrape the declared port (prometheus.io/port): rewrite __address__ to host:port
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      # 4) promote useful metadata onto every sample
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+# Keep it lean — no subcharts needed for this demo.
+alertmanager:             { enabled: false }
+prometheus-node-exporter: { enabled: false }
+kube-state-metrics:       { enabled: false }
+prometheus-pushgateway:   { enabled: false }
