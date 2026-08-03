@@ -20,8 +20,13 @@ live bankobs fleet.
 - If you're reaching for a time series to show a single current value, stop — that's a stat.
 
 ## Provision & view
-This dashboard is loaded by the capstone in **`../1.5.8`** (`make setup`), then open
-Grafana → *Observability Course* → this dashboard (uid `obs-panels`).
+Stand up a Grafana with the datasource once (`cd ../1.5.1 && make`), then from this
+folder import **only this dashboard**:
+```bash
+make apply GRAFANA_URL=http://<node-ip>:13000    # make verify / make delete too
+```
+Open Grafana → uid `obs-panels`. To load every 1.5 dashboard at once instead, use
+the **`../1.5.8`** lab.
 
 **Verified** on the live fleet: all six panels render against
 `http_server_requests_seconds_count` and `up`.

@@ -20,8 +20,12 @@ expression is true, tagged with the `service` / `pod` labels. Overlay them on th
 request-rate graph and every dip has a candidate cause sitting right under it.
 
 ## Provision & view
-Loaded by **`../1.5.8`** (`make setup`). Open uid `obs-annotations`. To *see* a
-marker appear, restart a service:
+With a Grafana + datasource running (`cd ../1.5.1 && make`), import **only this
+dashboard**:
+```bash
+make apply GRAFANA_URL=http://<node-ip>:13000
+```
+Open uid `obs-annotations`. To *see* a marker appear, restart a service:
 ```bash
 kubectl -n bankobs rollout restart deploy/<some-service>
 ```

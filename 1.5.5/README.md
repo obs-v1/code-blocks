@@ -25,7 +25,12 @@ which is clearer and keeps each query single-purpose. Reshaping is a *presentati
 job; transformations are where it belongs.
 
 ## Provision & view
-Loaded by **`../1.5.8`** (`make setup`). Open uid `obs-transforms`.
+With a Grafana + datasource running (`cd ../1.5.1 && make`), import **only this
+dashboard**:
+```bash
+make apply GRAFANA_URL=http://<node-ip>:13000
+```
+Open uid `obs-transforms`. (All 1.5 dashboards at once: the **`../1.5.8`** lab.)
 
 **Verified**: the join produces one row per service on the live fleet. (The
 `errors/s` column reads 0 while the fleet is healthy — it fills in the moment a

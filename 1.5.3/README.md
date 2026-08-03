@@ -24,7 +24,12 @@ Because it's a regex match (`=~`) with `allValue: .*`, picking **All** shows the
 whole fleet; picking one or many services narrows instantly — same panels, no edits.
 
 ## Provision & view
-Loaded by **`../1.5.8`** (`make setup`). Open uid `obs-variables`, then change the
-**Service** dropdown at the top and watch every panel follow.
+With a Grafana + datasource running (`cd ../1.5.1 && make`), import **only this
+dashboard** from here:
+```bash
+make apply GRAFANA_URL=http://<node-ip>:13000
+```
+Open uid `obs-variables` and change the **Service** dropdown — every panel follows.
+(All 1.5 dashboards at once: the **`../1.5.8`** lab.)
 
 **Verified**: the variable resolves to 35 services on the live fleet; panels re-scope correctly.

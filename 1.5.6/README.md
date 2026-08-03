@@ -27,6 +27,8 @@ cd terraform
 terraform init
 terraform apply -var 'grafana_url=http://<node-ip>:13000' -var 'grafana_auth=admin:admin'
 ```
+(or just `make apply GRAFANA_URL=http://<node-ip>:13000` from this folder — the
+Makefile wraps exactly those commands.)
 `main.tf` provisions the `uid: prometheus` datasource and loads the sibling
 dashboard JSONs with `grafana_dashboard`.
 

@@ -23,8 +23,13 @@ colours that signal nothing · mixed/raw units · a dashboard per service instea
 one with a variable.
 
 ## Provision & view
-Loaded by **`../1.5.8`** (`make setup`). Open uid `obs-red` — this is the one you'd
-actually pin as the fleet's front door.
+With a Grafana + datasource running (`cd ../1.5.1 && make`), import **only this
+dashboard**:
+```bash
+make apply GRAFANA_URL=http://<node-ip>:13000
+```
+Open uid `obs-red` — the one you'd actually pin as the fleet's front door. (All 1.5
+dashboards at once: the **`../1.5.8`** lab.)
 
 **Verified**: Rate/Errors/Duration and the percentile panels render live; the
 `$service` scope and restart annotations work against the fleet.
