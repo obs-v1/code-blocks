@@ -1,0 +1,20 @@
+# Grafana dashboard PROVIDER config (file-based provisioning).
+# Grafana reads this from /etc/grafana/provisioning/dashboards/ on startup and
+# then watches a directory of dashboard JSON files — dropping a *.json in that
+# folder makes the dashboard appear, no clicking, no API calls.
+#
+# This is the "dashboards as code" backbone: the JSON is the source of truth,
+# provisioning just loads it. Pair it with a stable datasource UID (see 1.5.1)
+# and the same JSON renders identically in every environment.
+apiVersion: 1
+providers:
+  - name: obs-course
+    orgId: 1
+    folder: "Observability Course"     # the Grafana folder these land in
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30          # re-scan the folder every 30s
+    allowUiUpdates: false              # UI edits are transient; the file wins
+    options:
+      path: /var/lib/grafana/dashboards/obs-course
+      foldersFromFilesStructure: false

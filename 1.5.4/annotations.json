@@ -1,0 +1,64 @@
+{
+  "uid": "obs-annotations",
+  "title": "1.5.4 — Annotations: marking events on graphs",
+  "tags": ["obs-course", "1.5.4"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "annotations": {
+    "list": [
+      {
+        "name": "Pod restarts",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "enable": true,
+        "iconColor": "orange",
+        "expr": "changes(process_start_time_seconds{namespace=\"bankobs\"}[2m]) > 0",
+        "titleFormat": "restart",
+        "textFormat": "{{service}} restarted",
+        "tagKeys": "service,pod"
+      },
+      {
+        "name": "Target down",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "enable": true,
+        "iconColor": "red",
+        "expr": "up{namespace=\"bankobs\"} == 0",
+        "titleFormat": "DOWN",
+        "textFormat": "{{pod}} unreachable",
+        "tagKeys": "pod"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "How to read this",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "Vertical markers on the graphs below are **annotations** — driven by PromQL, not drawn by hand. Orange = a pod restart (`process_start_time_seconds` changed); red = a target went down (`up == 0`). Annotations turn a mystery bump into 'oh, that's the 14:03 restart.'" }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Fleet request rate (with event annotations)",
+      "description": "The same rate graph — but every restart / outage is marked, so a dip has an explanation.",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count[5m]))", "legendFormat": "fleet req/s" } ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Restarts per service (rate)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [ { "refId": "A", "expr": "sum by (service) (changes(process_start_time_seconds{namespace=\"bankobs\"}[5m]))", "legendFormat": "{{service}}" } ]
+    }
+  ]
+}

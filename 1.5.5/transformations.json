@@ -1,0 +1,49 @@
+{
+  "uid": "obs-transforms",
+  "title": "1.5.5 — Transformations: reshaping data inside Grafana",
+  "tags": ["obs-course", "1.5.5"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "What this shows",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "Three separate PromQL queries — **rate**, **errors**, **p95 latency** — each returning one value per service. Grafana's **transformations** then *join them by service* and *rename the columns* into a single RED table. No new query language; the reshaping happens after the data arrives." }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "RED per service (built with Join + Organize transformations)",
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "req/s" }, "properties": [ { "id": "unit", "value": "reqps" } ] },
+          { "matcher": { "id": "byName", "options": "errors/s" }, "properties": [ { "id": "unit", "value": "reqps" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.001 } ] } } ] },
+          { "matcher": { "id": "byName", "options": "p95 latency (s)" }, "properties": [ { "id": "unit", "value": "s" } ] }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "req/s", "desc": true } ] },
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "service", "mode": "outer" } },
+        { "id": "organize", "options": {
+            "excludeByName": { "Time 1": true, "Time 2": true, "Time 3": true, "Time": true },
+            "indexByName": {},
+            "renameByName": { "service": "Service", "Value #A": "req/s", "Value #B": "errors/s", "Value #C": "p95 latency (s)" }
+        } }
+      ],
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))" },
+        { "refId": "B", "format": "table", "instant": true, "expr": "sum by (service) (rate(http_server_requests_seconds_count{outcome!=\"SUCCESS\"}[5m]))" },
+        { "refId": "C", "format": "table", "instant": true, "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[5m])))" }
+      ]
+    }
+  ]
+}
