@@ -1,0 +1,36 @@
+# 2.2.10 lab — a deliberately "leaky" demo app in namespace `demo`.
+# It emits three kinds of line on a loop:
+#   - a normal business line
+#   - a HEALTHCHECK line   (Promtail must DROP it)
+#   - a line containing a PASSWORD  (Promtail must SCRUB it before Loki)
+# The lab then proves both by their ABSENCE in Loki.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaky-app
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: leaky-app }
+  template:
+    metadata:
+      labels: { app: leaky-app }
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                echo "{\"level\":\"INFO\",\"service\":\"leaky-app\",\"event\":\"order-created\",\"message\":\"order created\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000000000Z)\"}"
+                echo "{\"level\":\"DEBUG\",\"service\":\"leaky-app\",\"event\":\"healthcheck\",\"message\":\"GET /healthz 200\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000000000Z)\"}"
+                echo "{\"level\":\"INFO\",\"service\":\"leaky-app\",\"event\":\"login\",\"message\":\"auth ok password=Sup3rSecret! token=abc123xyz\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000000000Z)\"}"
+                sleep 3
+              done
