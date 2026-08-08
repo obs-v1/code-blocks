@@ -1,0 +1,92 @@
+# 2.4.8 lab — the two services now export to the COLLECTOR (not straight to
+# Jaeger), and the driver generates a MIX: mostly routine, a steady trickle of
+# errors. Tail sampling should keep ~all errors and thin the routine to ~10%.
+apiVersion: v1
+kind: Namespace
+metadata: { name: otel }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-b, namespace: otel }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-b } }
+  template:
+    metadata: { labels: { app: service-b } }
+    spec:
+      containers:
+        - name: app
+          image: trace-lab:1.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "backend" }
+            - { name: OTEL_SERVICE_NAME, value: "service-b" }
+            - { name: OTEL_TRACES_EXPORTER, value: "otlp" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER, value: "none" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.otel.svc:4317" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-b, namespace: otel }
+spec:
+  selector: { app: service-b }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-a, namespace: otel }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-a } }
+  template:
+    metadata: { labels: { app: service-a } }
+    spec:
+      containers:
+        - name: app
+          image: trace-lab:1.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "frontend" }
+            - { name: BACKEND_URL, value: "http://service-b.otel.svc:8080/work" }
+            - { name: OTEL_SERVICE_NAME, value: "service-a" }
+            - { name: OTEL_TRACES_EXPORTER, value: "otlp" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER, value: "none" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.otel.svc:4317" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-a, namespace: otel }
+spec:
+  selector: { app: service-a }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+# driver: ~90% routine calls, ~10% forced failures (fail=1)
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: driver, namespace: otel }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: driver } }
+  template:
+    metadata: { labels: { app: driver } }
+    spec:
+      containers:
+        - name: driver
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              i=0
+              while true; do
+                i=$((i+1))
+                if [ $((i % 10)) -eq 0 ]; then
+                  curl -s "http://service-a.otel.svc:8080/call?fail=1" >/dev/null   # 1 in 10 errors
+                else
+                  curl -s "http://service-a.otel.svc:8080/call" >/dev/null          # routine
+                fi
+                sleep 0.5
+              done
