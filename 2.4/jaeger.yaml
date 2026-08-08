@@ -39,7 +39,9 @@ metadata:
   name: jaeger-query             # UI + query API
   namespace: otel
 spec:
-  type: NodePort
+  # ClusterIP (not NodePort) so this lab can run alongside 2.3, which owns the
+  # kind host-port :16686. Reach this Jaeger UI with `make ui` (port-forward).
+  type: ClusterIP
   selector: { app: jaeger }
   ports:
-    - { name: ui, port: 16686, targetPort: 16686, nodePort: 31686 }  # kind host :16686
+    - { name: ui, port: 16686, targetPort: 16686 }

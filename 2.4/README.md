@@ -59,6 +59,15 @@ meant to keep; too long and buffered traces multiply memory by traffic volume an
 can OOM the Collector — taking the whole pipeline down. Size it just past your p99
 trace duration (2.4.7).
 
+## Jaeger UI
+
+This lab's Jaeger is a **ClusterIP** (so it can coexist with 2.3, which owns the
+kind host-port `:16686`). Reach the UI with a port-forward:
+
+```bash
+make ui         # Jaeger UI at http://localhost:16686
+```
+
 ## Tear down
 
 ```bash
