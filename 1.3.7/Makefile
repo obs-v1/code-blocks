@@ -6,17 +6,20 @@
 #
 .DEFAULT_GOAL := setup
 
-.PHONY: setup init plan apply destroy output fmt clean
+.PHONY: setup tf-install init plan apply destroy output fmt clean
 
 setup: init apply ## stand up mimir
 
-init: ## download providers, prepare the working dir
+tf-install: ## install terraform on the lab box if it is missing
+	@command -v terraform >/dev/null 2>&1 || sudo labauto terraform
+
+init: tf-install ## download providers, prepare the working dir
 	terraform init -input=false
 
 plan: init ## preview the changes
 	terraform plan
 
-apply: ## create the mimir box and render the prometheus values file
+apply: tf-install ## create the mimir box and render the prometheus values file
 	terraform apply -auto-approve
 
 destroy: ## remove everything this demo created

@@ -6,17 +6,20 @@
 #
 .DEFAULT_GOAL := setup
 
-.PHONY: setup init plan apply destroy output fmt clean
+.PHONY: setup tf-install init plan apply destroy output fmt clean
 
 setup: init apply ## stand up the whole demo
 
-init: ## download the provider, prepare the working dir
+tf-install: ## install terraform on the lab box if it is missing
+	@command -v terraform >/dev/null 2>&1 || sudo labauto terraform
+
+init: tf-install ## download the provider, prepare the working dir
 	terraform init -input=false
 
 plan: init ## preview the changes
 	terraform plan
 
-apply: ## create the three instances and provision them
+apply: tf-install ## create the three instances and provision them
 	terraform apply -auto-approve
 
 destroy: ## remove everything this demo created

@@ -12,13 +12,16 @@ GRAFANA_URL  ?= http://localhost:13000
 GRAFANA_AUTH ?= admin:admin
 
 .DEFAULT_GOAL := apply
-.PHONY: apply plan fmt destroy
+.PHONY: tf-install apply plan fmt destroy
 
-apply: ## provision datasource + dashboards with Terraform
+tf-install: ## install terraform on the lab box if it is missing
+	@command -v terraform >/dev/null 2>&1 || sudo labauto terraform
+
+apply: tf-install ## provision datasource + dashboards with Terraform
 	cd terraform && terraform init -input=false && \
 	  terraform apply -auto-approve -var 'grafana_url=$(GRAFANA_URL)' -var 'grafana_auth=$(GRAFANA_AUTH)'
 
-plan: ## preview the changes
+plan: tf-install ## preview the changes
 	cd terraform && terraform init -input=false && \
 	  terraform plan -var 'grafana_url=$(GRAFANA_URL)' -var 'grafana_auth=$(GRAFANA_AUTH)'
 
