@@ -2,7 +2,7 @@
 2. Login to server and execute this to install exporters.
 
 ```bash
-curl https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/prom-02/install-exporters.sh | sudo bash 
+curl https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.2/install-exporters.sh | sudo bash 
 ```
 
 3. Validate the exporters running status. 
@@ -15,7 +15,7 @@ ss -lntp
 
 ```bash
 # Download the prometheus input file 
-curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/prom-02/prometheus-values.yaml
+curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.2/prometheus-values.yaml
 
 # Update the IP address of static config
 
