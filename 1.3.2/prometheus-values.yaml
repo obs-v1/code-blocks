@@ -9,14 +9,23 @@ scrapeConfigs:
   kubernetes-services:               { enabled: false }
   prometheus-pushgateway:            { enabled: false }
 
-  # ── First static target ────────────────────────────────────────────────────
-  # The key below becomes the job_name. Point it at a host running node_exporter
-  # (default port 9100). Add more 'targets:' lines to scrape several servers.
+  # ── Target 1 · node_exporter (the host: CPU, memory, disk, network) ─────────
+  # The key below becomes the job_name. Point it at the EC2 box running
+  # node_exporter on :9100 (installed by install-exporters.sh).
   my-static-server:
     enabled: true
     static_configs:
       - targets:
           - "172.31.29.33:9100"     # ← replace with your server's IP or hostname
+
+  # ── Target 2 · mongodb_exporter (the database) ──────────────────────────────
+  # install-exporters.sh also runs mongodb_exporter on :9216 on the SAME box.
+  # Scrape it too, so Prometheus monitors the database — not just the host.
+  mongodb-exporter:
+    enabled: true
+    static_configs:
+      - targets:
+          - "172.31.29.33:9216"     # ← same server IP as above
 
 alertmanager:
   enabled: false
