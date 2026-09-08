@@ -10,23 +10,30 @@ scrapeConfigs:
   prometheus-pushgateway:            { enabled: false }
   blackbox-http:
     enabled: true
-    metrics_path: /probe
+    metrics_path: /probe               # the blackbox exporter's probe endpoint
     params:
-      module: [http_2xx]
+      module: [http_2xx]               # probe type defined in the exporter config
     static_configs:
-      - targets:
+      - targets:                       # the URLs you want to probe from outside
           - https://google.com
           - https://prometheus.io
           - https://expired.badssl.com
           - https://httpstat.us/500
           - https://no-such-host-xyz.invalid
+
+    # ── relabeling — explained in full in 1.3.13 ────────────────────────────
+    # This is the ONE place you meet relabeling before it is formally taught.
+    # You do NOT need to understand the mechanics yet — the blackbox exporter
+    # simply cannot work without it, so read it as a fixed recipe: it makes
+    # Prometheus scrape the EXPORTER while handing it each target above as a
+    # ?target=... parameter, so one exporter can probe every URL in the list.
     relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: blackbox-prometheus-blackbox-exporter:9115
+      - source_labels: [__address__]        # 1. take the target URL from the list...
+        target_label: __param_target        #    ...and pass it to the exporter as ?target=
+      - source_labels: [__param_target]     # 2. keep that URL as the human-readable
+        target_label: instance              #    'instance' label on the metrics
+      - target_label: __address__           # 3. now point the scrape at the exporter
+        replacement: blackbox-prometheus-blackbox-exporter:9115  #    itself, not the URL
 
 alertmanager:             { enabled: false }
 prometheus-node-exporter: { enabled: false }
