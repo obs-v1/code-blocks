@@ -13,11 +13,9 @@ that references `uid: prometheus` works unchanged in every environment.
 ## What's here
 
 | File | Purpose |
-|------|---------|
+|------|--------|
 | `grafana-values.yaml` | Grafana (helm) exposed on a NodePort, with the Prometheus datasource **provisioned** inline |
-| `datasources.yaml` | reference provisioning file — the full Prometheus / Loki / Jaeger pattern with stable UIDs |
-| `verify.sh` | proves the datasource is provisioned and Grafana can query Prometheus through it |
-| `Makefile` | `make` / `make verify` / `make destroy` |
+| `Makefile` | `make` |
 
 ## Prereqs
 
@@ -66,35 +64,3 @@ per-install UIDs are exactly what break exported dashboards.
 (traces) — uncomment/point them at those backends when you run them, and Grafana
 can correlate metrics, logs, and traces on one screen.
 
-## Verify
-
-```bash
-make verify GRAFANA_URL=http://<node-ip>:13000
-```
-
-Expected:
-
-```
-== health ==
-  db=ok  version=...
-== provisioned datasources ==
-  name=Prometheus  uid=prometheus  type=prometheus  default=true
-== query 'up' THROUGH Grafana's datasource proxy (uid: prometheus) ==
-  status=success   ('up' series returned: N)
-PASS — Grafana is reading metrics from Prometheus via the provisioned datasource.
-```
-
-The last step queries `up` **through Grafana's datasource proxy**, so a PASS proves
-the whole path — Grafana → provisioned datasource → Prometheus — actually works.
-
-## Tear down
-
-```bash
-make destroy
-```
-
----
-
-**Verified 2026-08-02** on single-node kind (k8s v1.36): Grafana provisioned with
-the Prometheus datasource (`uid: prometheus`, default), reachable at `:13000`, and
-an `up` query round-tripped through the datasource proxy.

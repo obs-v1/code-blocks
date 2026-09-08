@@ -1,0 +1,5 @@
+```
+# helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# helm repo update
+# helm upgrade -i prometheus prometheus-community/prometheus -n monitoring --set server.service.type=NodePort --set server.service.nodePort=30990 -f https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.1/prometheus-values.yaml --create-namespace
+```
