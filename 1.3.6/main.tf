@@ -29,7 +29,7 @@ data "aws_subnets" "default" {
 }
 
 locals {
-  subnet_id = tolist(data.aws_subnets.default.ids)[0]
+  subnet_id = tolist(data.aws_subnets.default.ids)[1]
 
   # reused on every instance
   common_tags = {
