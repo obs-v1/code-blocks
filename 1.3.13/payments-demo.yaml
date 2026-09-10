@@ -1,0 +1,71 @@
+# Sample business workloads for the 1.3.13 relabel demo.
+# Two namespaces (payments, orders) with a few labeled pods, so the
+# "keep only the payments namespace" relabel rule has something real to filter:
+# discovery finds payments + orders + kube-system; the rule keeps only payments.
+#
+#   kubectl apply -f payments-demo.yaml
+#   kubectl delete -f payments-demo.yaml   # teardown
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orders
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+  namespace: payments
+  labels: { app: payment-api, team: payments, tier: frontend }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: payment-api } }
+  template:
+    metadata:
+      labels: { app: payment-api, team: payments, tier: frontend }
+    spec:
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports: [{ containerPort: 80 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-worker
+  namespace: payments
+  labels: { app: payment-worker, team: payments, tier: worker }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: payment-worker } }
+  template:
+    metadata:
+      labels: { app: payment-worker, team: payments, tier: worker }
+    spec:
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports: [{ containerPort: 80 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-api
+  namespace: orders
+  labels: { app: order-api, team: orders, tier: frontend }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: order-api } }
+  template:
+    metadata:
+      labels: { app: order-api, team: orders, tier: frontend }
+    spec:
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports: [{ containerPort: 80 }]

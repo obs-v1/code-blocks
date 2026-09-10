@@ -1,31 +1,30 @@
 # ============================================================================
-# 1.3.13 — relabel_configs demo: SEE every label before you shape it
+# 1.3.13 — relabel demo: DROP every scrape that isn't in the payments namespace
 # ----------------------------------------------------------------------------
-# Purpose: give the class a Prometheus whose ONLY job discovers every pod in the
-# cluster and shows the full set of labels service discovery attaches — so
-# relabel_configs (1.3.13) and keep/drop/replace/labelmap (1.3.14) have real
-# labels to act on.
+# A one-job kind Prometheus that discovers every pod, shows the namespace each
+# one came from, and then (when you enable the keep rule) throws away every
+# target that is not in the `payments` namespace.
 #
-# Apply it to a kind cluster:
-#   helm upgrade -i prometheus prometheus-community/prometheus -n monitoring \
-#     --create-namespace -f prometheus-values-relabel-demo.yaml
+# 0) Deploy the sample workloads so there's something to filter:
+#      kubectl apply -f payments-demo.yaml
 #
-# Then, in the Prometheus UI (kind maps host :9090 -> NodePort 30990 below):
-#   * Status -> Service Discovery : per target, the DISCOVERED labels (the full
-#       __meta_* firehose) next to the TARGET labels left after relabeling.
-#       This is THE screen to teach relabeling from — no trick required.
-#   * Graph : run   up{job="relabel-demo"}   -> every series carries every pod
-#       label, because the labelmap rule below promotes them onto the metric.
-#       (up is emitted for every target, 1 or 0, so labels show even for pods
-#        that expose no /metrics — perfect for a label demo.)
+# 1) Point Prometheus at this file:
+#      helm upgrade -i prometheus prometheus-community/prometheus -n monitoring \
+#        --create-namespace -f prometheus-values-relabel-demo.yaml
 #
-# Teaching arc: ship as-is (Step 1 only = the firehose). Then uncomment Step 2,
-# 3, 4 ONE at a time and re-run the helm command above, refreshing Status ->
-# Targets / Service Discovery to watch the target list and labels change.
+# 2) Open http://localhost:9090  (kind maps host :9090 -> NodePort 30990).
+#    Status -> Targets  (or  Status -> Service Discovery)  now lists pods from
+#    EVERY namespace — payments, orders, kube-system, monitoring. The `namespace`
+#    column is populated by the replace rule below, so students can see it.
+#
+# 3) THE DEMO: uncomment the "keep only payments" rule at the bottom, re-run the
+#    helm command in step 1, and refresh Status -> Targets. Everything that is
+#    not in the payments namespace vanishes — orders and kube-system included.
+#    (keep = keep what matches, drop the rest — so "keep payments" IS "drop
+#    everything that is not payments.")
 # ============================================================================
 
-# Turn OFF every built-in job so the Targets page shows ONLY our demo job —
-# nothing else competing for the students' attention.
+# Turn OFF every built-in job, so the Targets page shows ONLY our demo job.
 scrapeConfigs:
   prometheus:                        { enabled: false }
   kubernetes-api-servers:            { enabled: false }
@@ -43,41 +42,27 @@ scrapeConfigs:
     enabled: true
     honor_labels: true
     kubernetes_sd_configs:
-      - role: pod                    # discover EVERY pod in the cluster
+      - role: pod                    # discover EVERY pod in EVERY namespace
 
     relabel_configs:
-      # ── STEP 1 · THE FIREHOSE (leave this on) ──────────────────────────────
-      # labelmap copies every "__meta_kubernetes_pod_label_<x>" onto the metric
-      # as "<x>", so `up` visibly carries every pod label discovery found.
-      - action: labelmap
+      # Make the labels we care about visible on the targets and on `up`,
+      # so the class can SEE the namespace we're about to filter on.
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+      - action: labelmap                       # bonus: expose the pod's own labels
         regex: __meta_kubernetes_pod_label_(.+)
 
-      # ── STEP 2 · REPLACE — derive clean, human labels ──────────────────────
-      # Uncomment and re-apply to show `replace` promoting __meta_* into tidy
-      # namespace / pod / node labels (the everyday use of relabeling).
+      # ── THE DEMO RULE — drop everything that isn't the payments namespace ──
+      # Leave commented to show the "before" (all namespaces). Uncomment and
+      # re-apply to show the "after" (only payments survives).
+      #
       # - source_labels: [__meta_kubernetes_namespace]
-      #   action: replace
-      #   target_label: namespace
-      # - source_labels: [__meta_kubernetes_pod_name]
-      #   action: replace
-      #   target_label: pod
-      # - source_labels: [__meta_kubernetes_pod_node_name]
-      #   action: replace
-      #   target_label: node
-
-      # ── STEP 3 · KEEP — opt-in filtering ───────────────────────────────────
-      # Uncomment to shrink the firehose to only pods that asked to be scraped
-      # (annotation prometheus.io/scrape: "true"). Watch most targets disappear
-      # from Status -> Targets — discovery finds all, keep decides who stays.
-      # - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
       #   action: keep
-      #   regex: "true"
-
-      # ── STEP 4 · DROP — remove noise ───────────────────────────────────────
-      # Uncomment to drop pods that are not actually Running.
-      # - source_labels: [__meta_kubernetes_pod_phase]
-      #   regex: Pending|Succeeded|Failed|Completed
-      #   action: drop
+      #   regex: payments
 
 # Expose the UI on kind's host-port mapping (host :9090 -> this NodePort).
 server:
@@ -85,7 +70,7 @@ server:
     type: NodePort
     nodePort: 30990
 
-# Keep the install tiny — this is a label demo, not a monitoring stack.
+# Keep the install tiny — this is a relabel demo, not a monitoring stack.
 alertmanager:             { enabled: false }
 prometheus-node-exporter: { enabled: false }
 kube-state-metrics:       { enabled: false }

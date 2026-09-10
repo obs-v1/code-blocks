@@ -1,62 +1,92 @@
-# 1.3.13 — relabel_configs demo (see every label before you shape it)
+# 1.3.13 — relabel demo: keep only the `payments` namespace
 
-A one-job Prometheus for teaching relabeling. It discovers **every pod** in a
-kind cluster and shows the full set of labels service discovery attaches, so
-`relabel_configs` (1.3.13) and `keep`/`drop`/`replace`/`labelmap` (1.3.14) have
-real labels to act on.
+A one-job kind Prometheus for teaching `relabel_configs`. It discovers **every
+pod in every namespace**, shows which namespace each came from, and then — with
+one `keep` rule — throws away every target that isn't in the **`payments`**
+namespace. The everyday "discovery finds all, relabeling decides who stays."
 
 ## Prereqs
 
 - A **kind** cluster with host port `9090` mapped (the labs' standard kind
-  config), and the `prometheus-community` Helm repo added:
+  config), and the `prometheus-community` Helm repo:
   ```bash
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
   helm repo update
   ```
 
-## Apply
+## 0 · Deploy the sample workloads
+
+So the filter has something real to act on — a `payments` namespace and an
+`orders` namespace with labeled pods:
+
+```bash
+curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.13/payments-demo.yaml
+kubectl apply -f payments-demo.yaml
+```
+
+| Namespace | Pods |
+|-----------|------|
+| `payments` | `payment-api` ×2, `payment-worker` ×1 |
+| `orders` | `order-api` ×1 |
+| `kube-system` | coredns, kube-proxy, … (already there) |
+
+## 1 · Apply the demo Prometheus
 
 ```bash
 curl -L -O https://raw.githubusercontent.com/obs-v1/code-blocks/refs/heads/main/1.3.13/prometheus-values-relabel-demo.yaml
-
 helm upgrade -i prometheus prometheus-community/prometheus -n monitoring \
   --create-namespace -f prometheus-values-relabel-demo.yaml
 ```
 
-Open the UI at `http://localhost:9090` (kind maps host `:9090` → NodePort
-`30990`).
+Open `http://localhost:9090` (kind maps host `:9090` → NodePort `30990`).
 
-## Where the labels live
+## 2 · Before — every namespace is scraped
 
-- **Status → Service Discovery** — the star of the demo. For every target it
-  shows **Discovered labels** (the full `__meta_kubernetes_*` firehose) beside
-  **Target labels** (what survives relabeling). No trick needed — this screen
-  *is* the lesson.
-- **Graph** — run `up{job="relabel-demo"}`. Because the shipped `labelmap` rule
-  promotes every pod label onto the metric, each series carries every pod
-  label. `up` is emitted for every target (1 or 0), so labels show even for
-  pods that expose no `/metrics` — which is exactly what you want for a label
-  demo.
+**Status → Targets** (or **Status → Service Discovery**) lists pods from
+**payments, orders, and kube-system**. The `namespace` label is filled in by a
+`replace` rule, so students can see exactly what we're about to filter on. Run
+`up{job="relabel-demo"}` and you'll see targets from all namespaces.
 
-## The teaching arc
+## 3 · The demo — drop everything that isn't payments
 
-The file ships with **Step 1 only** (the `labelmap` firehose). Uncomment the
-later steps in `prometheus-values-relabel-demo.yaml` **one at a time**, re-run
-the `helm upgrade` above, and refresh Status → Targets / Service Discovery:
+Edit `prometheus-values-relabel-demo.yaml` and **uncomment the keep rule** at
+the bottom of the `relabel-demo` job:
 
-| Step | Action | What the class sees |
-|------|--------|---------------------|
-| 1 | `labelmap` | Every pod label appears on `up` — discovery knows a *lot*. |
-| 2 | `replace` | Tidy `namespace` / `pod` / `node` labels derived from `__meta_*`. |
-| 3 | `keep` | Most targets vanish — only pods with `prometheus.io/scrape: "true"` stay. |
-| 4 | `drop` | Non-Running pods (Pending/Succeeded/Failed) fall away. |
+```yaml
+      - source_labels: [__meta_kubernetes_namespace]
+        action: keep
+        regex: payments
+```
 
-The punchline for 1.3.15: uncommenting Step 3 reproduces exactly what the
-chart's built-in `kubernetes-pods` job does — annotation-based opt-in scraping.
+Re-apply and refresh **Status → Targets**:
+
+```bash
+helm upgrade -i prometheus prometheus-community/prometheus -n monitoring \
+  --create-namespace -f prometheus-values-relabel-demo.yaml
+```
+
+**Everything outside `payments` disappears** — orders and kube-system are gone;
+only `payment-api` and `payment-worker` remain. That's the teaching point:
+
+> `keep` keeps what matches and drops the rest — so **"keep `payments`" is
+> exactly "drop every scrape that isn't in the payments namespace."** `keep` is
+> the idiom for "only these": Prometheus' regex engine (RE2) has no negative
+> match, so you express "drop everything that isn't X" as `keep` on X, not as a
+> `drop`.
+
+## Teardown
+
+```bash
+helm uninstall prometheus -n monitoring
+kubectl delete -f payments-demo.yaml
+```
 
 ## Notes
 
 - With no `keep` rule, Prometheus tries to scrape every discovered pod, so many
-  targets show **DOWN** (they expose no `/metrics`). That's expected and
-  harmless in a small kind cluster — the labels are the point, not the scrape.
-- Teardown: `helm uninstall prometheus -n monitoring`.
+  targets show **DOWN** (nginx exposes no `/metrics`). That's fine — this demo
+  is about *which targets exist*, not their metric values; the Targets and
+  Service Discovery pages show discovered targets regardless of scrape success.
+- Verified with `helm template`: the values file renders a single `relabel-demo`
+  job, and the chart still grants the `pods: [get,list,watch]` RBAC that
+  `kubernetes_sd` needs even with all built-in jobs disabled.
