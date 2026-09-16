@@ -26,3 +26,8 @@ verify: ## confirm the datasource is provisioned and can query Prometheus
 
 destroy: ## remove Grafana
 	-helm -n $(NS) uninstall grafana
+
+datasources:
+	helm upgrade -i grafana grafana/grafana -n $(NS) --create-namespace -f grafana-values-d.yaml
+	kubectl -n $(NS) rollout status deploy/grafana --timeout=180s
+
