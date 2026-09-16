@@ -26,5 +26,5 @@ datasources:
         uid: prometheus       # stable UID — dashboards reference THIS, not the name
         type: prometheus
         access: proxy
-        url: http://prometheus-server.monitoring.svc
+        url: http://prometheus-server
         isDefault: true
