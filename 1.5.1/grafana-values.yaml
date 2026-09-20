@@ -8,6 +8,11 @@
 # The `datasources:` block below IS the provisioning file (the chart writes it to
 # /etc/grafana/provisioning/datasources/ inside the pod).
 
+# Pin the latest Grafana 13. The grafana/grafana Helm chart still defaults to
+# appVersion 12.x, so without this override the install comes up as Grafana 12.
+image:
+  tag: "13.2.2"
+
 service:
   type: NodePort
   nodePort: 31300            # kind maps host :13000 -> this nodePort
