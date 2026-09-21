@@ -1,0 +1,58 @@
+{
+  "uid": "red-rate",
+  "title": "1.6.1 · RED — Rate",
+  "tags": ["obs-course", "1.6.1", "red"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      { "name": "service", "label": "Service", "type": "query", "datasource": { "type": "prometheus", "uid": "prometheus" }, "query": { "query": "label_values(http_server_requests_seconds_count, service)", "refId": "v" }, "refresh": 2, "sort": 1, "includeAll": true, "allValue": ".*", "multi": true, "current": { "text": "All", "value": "$__all" } }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Total request rate", "description": "R in RED — throughput across the selected services.",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{service=~\"$service\"}[5m]))" } ]
+    },
+    {
+      "id": 2, "type": "bargauge", "title": "Busiest services (top 10)", "description": "Which services carry the most traffic right now.",
+      "gridPos": { "h": 5, "w": 16, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "instant": true, "expr": "topk(10, sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])))", "legendFormat": "{{service}}" } ]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Rate by service",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m]))", "legendFormat": "{{service}}" } ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Rate by HTTP method",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "sum by (method) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m]))", "legendFormat": "{{method}}" } ]
+    },
+    {
+      "id": 5, "type": "table", "title": "Rate by endpoint (top 15)", "description": "The busiest URIs across the selected services.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "uri": "Endpoint", "service": "Service", "Value": "Requests / sec" } } } ],
+      "targets": [ { "refId": "A", "format": "table", "instant": true, "expr": "topk(15, sum by (service, uri) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])))" } ]
+    }
+  ]
+}
