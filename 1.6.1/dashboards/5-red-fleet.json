@@ -1,52 +1,267 @@
 {
   "uid": "red-fleet",
-  "title": "1.6.1 · RED — Fleet at a glance",
-  "tags": ["obs-course", "1.6.1", "red"],
+  "title": "1.6.1 \u00b7 RED \u2014 Fleet at a glance",
+  "tags": [
+    "obs-course",
+    "1.6.1",
+    "red"
+  ],
   "schemaVersion": 39,
   "editable": true,
-  "time": { "from": "now-30m", "to": "now" },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
   "refresh": "30s",
-  "templating": { "list": [] },
-  "annotations": { "list": [] },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
   "panels": [
     {
-      "id": 1, "type": "table", "title": "RED per service — Rate · Errors · p95", "description": "The whole fleet in one table: three queries (rate, errors, p95) joined on service.",
-      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "id": 1,
+      "type": "table",
+      "title": "RED per service \u2014 Rate \u00b7 Errors \u00b7 p95",
+      "description": "The whole fleet in one table: three queries (rate, errors, p95) joined on service.",
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
-          { "matcher": { "id": "byName", "options": "Rate (req/s)" }, "properties": [ { "id": "unit", "value": "reqps" } ] },
-          { "matcher": { "id": "byName", "options": "Errors (req/s)" }, "properties": [ { "id": "unit", "value": "reqps" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.001 } ] } } ] },
-          { "matcher": { "id": "byName", "options": "p95 (s)" }, "properties": [ { "id": "unit", "value": "s" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.3 }, { "color": "red", "value": 1 } ] } } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rate (req/s)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors (req/s)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.001
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (s)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
         ]
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [ { "displayName": "Rate (req/s)", "desc": true } ] },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Rate (req/s)",
+            "desc": true
+          }
+        ]
+      },
       "transformations": [
-        { "id": "joinByField", "options": { "byField": "service", "mode": "outer" } },
-        { "id": "organize", "options": { "excludeByName": { "Time 1": true, "Time 2": true, "Time 3": true, "Time": true }, "renameByName": { "service": "Service", "Value #A": "Rate (req/s)", "Value #B": "Errors (req/s)", "Value #C": "p95 (s)" } } }
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "service",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time": true
+            },
+            "renameByName": {
+              "service": "Service",
+              "Value #A": "Rate (req/s)",
+              "Value #B": "Errors (req/s)",
+              "Value #C": "p95 (s)"
+            }
+          }
+        }
       ],
       "targets": [
-        { "refId": "A", "format": "table", "instant": true, "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))" },
-        { "refId": "B", "format": "table", "instant": true, "expr": "sum by (service) (rate(http_server_requests_seconds_count{outcome!=\"SUCCESS\"}[5m]))" },
-        { "refId": "C", "format": "table", "instant": true, "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[5m])))" }
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "(sum by (service) (rate(http_server_requests_seconds_count{outcome!=\"SUCCESS\"}[5m])) or (sum by (service) (rate(http_server_requests_seconds_count[5m])) * 0))"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[5m])))"
+        }
       ]
     },
     {
-      "id": 2, "type": "bargauge", "title": "Busiest services (rate)",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 13 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [ { "refId": "A", "instant": true, "expr": "topk(12, sum by (service) (rate(http_server_requests_seconds_count[5m])))", "legendFormat": "{{service}}" } ]
+      "id": 2,
+      "type": "bargauge",
+      "title": "Busiest services (rate)",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(12, sum by (service) (rate(http_server_requests_seconds_count[5m])))",
+          "legendFormat": "{{service}}"
+        }
+      ]
     },
     {
-      "id": 3, "type": "bargauge", "title": "Slowest services (p95)",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 13 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [ { "refId": "A", "instant": true, "expr": "topk(12, histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[5m]))))", "legendFormat": "{{service}}" } ]
+      "id": 3,
+      "type": "bargauge",
+      "title": "Slowest services (p95)",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(12, histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[5m]))))",
+          "legendFormat": "{{service}}"
+        }
+      ]
     }
   ]
 }

@@ -1,66 +1,350 @@
 {
   "uid": "red-errors",
-  "title": "1.6.1 · RED — Errors",
-  "tags": ["obs-course", "1.6.1", "red"],
+  "title": "1.6.1 \u00b7 RED \u2014 Errors",
+  "tags": [
+    "obs-course",
+    "1.6.1",
+    "red"
+  ],
   "schemaVersion": 39,
   "editable": true,
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "refresh": "30s",
   "templating": {
     "list": [
-      { "name": "service", "label": "Service", "type": "query", "datasource": { "type": "prometheus", "uid": "prometheus" }, "query": { "query": "label_values(http_server_requests_seconds_count, service)", "refId": "v" }, "refresh": 2, "sort": 1, "includeAll": true, "allValue": ".*", "multi": true, "current": { "text": "All", "value": "$__all" } }
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(http_server_requests_seconds_count, service)",
+          "refId": "v"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
     ]
   },
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "panels": [
     {
-      "id": 1, "type": "stat", "title": "Error rate", "description": "Failing requests per second (outcome != SUCCESS).",
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.001 } ] }, "color": { "mode": "thresholds" } }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
-      "targets": [ { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m]))" } ]
+      "id": 1,
+      "type": "stat",
+      "title": "Error rate",
+      "description": "Failing requests per second (outcome != SUCCESS).",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.001
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m])) or vector(0))"
+        }
+      ]
     },
     {
-      "id": 2, "type": "stat", "title": "Error ratio", "description": "E in RED — the fraction of requests that fail.",
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 2, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 } ] } }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
-      "targets": [ { "refId": "A", "expr": "100 * sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)" } ]
+      "id": 2,
+      "type": "stat",
+      "title": "Error ratio",
+      "description": "E in RED \u2014 the fraction of requests that fail.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)"
+        }
+      ]
     },
     {
-      "id": 3, "type": "stat", "title": "Success ratio", "description": "The happy path — for contrast.",
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percent", "decimals": 2, "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 95 }, { "color": "green", "value": 99 } ] } }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
-      "targets": [ { "refId": "A", "expr": "100 * sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome=\"SUCCESS\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)" } ]
+      "id": 3,
+      "type": "stat",
+      "title": "Success ratio",
+      "description": "The happy path \u2014 for contrast.",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 95
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{service=~\"$service\",outcome=\"SUCCESS\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)"
+        }
+      ]
     },
     {
-      "id": 4, "type": "timeseries", "title": "Error rate by service",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 20, "showPoints": "never" }, "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "refId": "A", "expr": "sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m]))", "legendFormat": "{{service}}" } ]
+      "id": 4,
+      "type": "timeseries",
+      "title": "Error rate by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m]))",
+          "legendFormat": "{{service}}"
+        }
+      ]
     },
     {
-      "id": 5, "type": "timeseries", "title": "Error ratio % by service",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percent", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "refId": "A", "expr": "100 * sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m])) / clamp_min(sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)", "legendFormat": "{{service}}" } ]
+      "id": 5,
+      "type": "timeseries",
+      "title": "Error ratio % by service",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\",outcome!=\"SUCCESS\"}[5m])) / clamp_min(sum by (service) (rate(http_server_requests_seconds_count{service=~\"$service\"}[5m])), 0.0001)",
+          "legendFormat": "{{service}}"
+        }
+      ]
     },
     {
-      "id": 6, "type": "table", "title": "Errors by service and status", "description": "4xx/5xx breakdown (empty when the fleet is all-green — that is the healthy state).",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-      "options": { "showHeader": true, "cellHeight": "sm" },
-      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "service": "Service", "status": "HTTP status", "Value": "Errors / sec" } } } ],
-      "targets": [ { "refId": "A", "format": "table", "instant": true, "expr": "sum by (service, status) (rate(http_server_requests_seconds_count{service=~\"$service\",status=~\"[45]..\"}[5m]))" } ]
+      "id": 6,
+      "type": "table",
+      "title": "Errors by service and status",
+      "description": "4xx/5xx breakdown (empty when the fleet is all-green \u2014 that is the healthy state).",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service": "Service",
+              "status": "HTTP status",
+              "Value": "Errors / sec"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (service, status) (rate(http_server_requests_seconds_count{service=~\"$service\",status=~\"[45]..\"}[5m]))"
+        }
+      ]
     }
   ]
 }
