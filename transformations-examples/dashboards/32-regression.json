@@ -1,0 +1,71 @@
+{
+  "uid": "tfx-regression",
+  "title": "TFX 32 \u00b7 Trendline (regression)",
+  "tags": [
+    "obs-course",
+    "transformations",
+    "regression"
+  ],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Trendline (regression)",
+      "description": "Fits a linear or polynomial regression to the data and draws the predicted trendline alongside it.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count[5m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "fleet req/s"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "regression",
+          "options": {
+            "modelType": "linear",
+            "predictionCount": 100
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

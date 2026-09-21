@@ -1,0 +1,71 @@
+{
+  "uid": "tfx-heatmap",
+  "title": "TFX 31 \u00b7 Create heatmap",
+  "tags": [
+    "obs-course",
+    "transformations",
+    "heatmap"
+  ],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "heatmap",
+      "title": "Create heatmap",
+      "description": "Calculates a heatmap (x/y bucketed density) from ordinary series inside Grafana \u2014 distinct from Prometheus-side histogram buckets.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "heatmap",
+          "options": {
+            "xBuckets": {
+              "mode": "count",
+              "value": ""
+            },
+            "yBuckets": {
+              "mode": "count",
+              "value": ""
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

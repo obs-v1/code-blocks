@@ -1,0 +1,66 @@
+{
+  "uid": "tfx-histogram",
+  "title": "TFX 30 \u00b7 Histogram",
+  "tags": [
+    "obs-course",
+    "transformations",
+    "histogram"
+  ],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "histogram",
+      "title": "Histogram",
+      "description": "Buckets the input values and counts how many fall in each bucket \u2014 a distribution of the numbers themselves.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "histogram",
+          "options": {
+            "bucketSize": null,
+            "bucketOffset": 0,
+            "combine": false
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

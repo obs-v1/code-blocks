@@ -1,0 +1,69 @@
+{
+  "uid": "tfx-format-time",
+  "title": "TFX 28 \u00b7 Format time",
+  "tags": [
+    "obs-course",
+    "transformations",
+    "format-time"
+  ],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Format time",
+      "description": "Formats a time field with a Moment.js pattern so timestamps read the way you want.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(6, sum by (service) (rate(http_server_requests_seconds_count[5m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "formatTime",
+          "options": {
+            "timeField": "Time",
+            "outputFormat": "YYYY-MM-DD HH:mm:ss",
+            "useTimezone": true
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    }
+  ]
+}

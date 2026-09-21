@@ -1,0 +1,68 @@
+{
+  "uid": "tfx-smoothing",
+  "title": "TFX 33 \u00b7 Smoothing (ASAP)",
+  "tags": [
+    "obs-course",
+    "transformations",
+    "smoothing"
+  ],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Smoothing (ASAP)",
+      "description": "Reduces noise in a time series using the ASAP adaptive smoothing algorithm, keeping the shape while removing jitter.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count[5m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "fleet req/s"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "smoothing",
+          "options": {}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}
