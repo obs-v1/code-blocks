@@ -7,11 +7,6 @@
 # Dashboards arrive via the sidecar: it watches ConfigMaps labelled
 # grafana_dashboard=1 (the Makefile creates one per dashboard JSON) and loads them.
 
-# Pin the latest Grafana 13. The grafana/grafana Helm chart still defaults to
-# appVersion 12.x, so without this override the install comes up as Grafana 12.
-image:
-  tag: "13.2.2"
-
 service:
   type: NodePort
   nodePort: 31300                # kind maps host :13000 -> this nodePort

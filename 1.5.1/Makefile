@@ -13,12 +13,12 @@ ADMIN       ?= admin:admin
 
 setup: repo grafana ## deploy grafana + provisioned datasource
 
-repo: ## add the grafana helm repo
-	helm repo add grafana https://grafana.github.io/helm-charts
-	helm repo update grafana
+repo: ## add the grafana-community helm repo (grafana/grafana is deprecated, frozen at v12)
+	helm repo add grafana-community https://grafana-community.github.io/helm-charts/
+	helm repo update grafana-community
 
 grafana: ## install Grafana with the datasource provisioned from grafana-values.yaml
-	helm upgrade -i grafana grafana/grafana -n $(NS) --create-namespace -f grafana-values.yaml
+	helm upgrade -i grafana grafana-community/grafana --version 13.2.5 -n $(NS) --create-namespace -f grafana-values.yaml
 	kubectl -n $(NS) rollout status deploy/grafana --timeout=180s
 
 verify: ## confirm the datasource is provisioned and can query Prometheus
@@ -28,6 +28,6 @@ destroy: ## remove Grafana
 	-helm -n $(NS) uninstall grafana
 
 datasources:
-	helm upgrade -i grafana grafana/grafana -n $(NS) --create-namespace -f grafana-values-d.yaml
+	helm upgrade -i grafana grafana-community/grafana --version 13.2.5 -n $(NS) --create-namespace -f grafana-values-d.yaml
 	kubectl -n $(NS) rollout status deploy/grafana --timeout=180s
 

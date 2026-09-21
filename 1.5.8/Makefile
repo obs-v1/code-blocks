@@ -17,9 +17,9 @@ DASH = ../1.5.2/panels.json ../1.5.3/variables.json ../1.5.4/annotations.json \
 
 setup: repo dashboards grafana ## deploy the whole thing
 
-repo: ## add the grafana helm repo
-	helm repo add grafana https://grafana.github.io/helm-charts
-	helm repo update grafana
+repo: ## add the grafana-community helm repo (grafana/grafana is deprecated, frozen at v12)
+	helm repo add grafana-community https://grafana-community.github.io/helm-charts/
+	helm repo update grafana-community
 
 dashboards: ## load each dashboard JSON as a labelled ConfigMap (sidecar picks them up)
 	kubectl create namespace $(NS) --dry-run=client -o yaml | kubectl apply -f -
@@ -32,7 +32,7 @@ dashboards: ## load each dashboard JSON as a labelled ConfigMap (sidecar picks t
 	done
 
 grafana: ## install Grafana with the datasource + dashboard sidecar
-	helm upgrade -i grafana grafana/grafana -n $(NS) --create-namespace -f grafana-values.yaml
+	helm upgrade -i grafana grafana-community/grafana --version 13.2.5 -n $(NS) --create-namespace -f grafana-values.yaml
 	kubectl -n $(NS) rollout status deploy/grafana --timeout=180s
 
 verify: ## check datasource, all dashboards, and live data
