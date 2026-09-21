@@ -2,20 +2,32 @@
 
 A dashboard per Grafana-13 transformation, each with a single panel that
 queries the **bankobserve360** Prometheus (datasource uid `prometheus`) and
-applies exactly one transformation. Load them all with `make load`.
+applies exactly one transformation. They are loaded into Grafana with
+**Terraform** — the same "dashboards as code" approach as section 1.5.6.
 
 > Transformations run **client-side in the browser** — open each dashboard in
 > Grafana to see the effect. The datasource must be the provisioned bank
 > Prometheus (`uid: prometheus`, e.g. from `1.5.1`).
 
+Each dashboard's JSON lives in `dashboards/`. The Terraform in `terraform/`
+fans out over that folder (`for_each`), so adding a JSON file is all it takes
+to add an example — the next `apply` loads it.
+
 
 ## Load
 
+Prereqs: Terraform ≥ 1.5 and a reachable Grafana with the `prometheus`
+datasource.
+
 ```bash
-make load GRAFANA_URL=http://<node-ip>:13000 GRAFANA_AUTH=admin:admin
-make list      # show what got loaded
-make delete    # remove them all
+make apply   GRAFANA_URL=http://<node-ip>:13000 GRAFANA_AUTH=admin:admin
+make plan    GRAFANA_URL=...    # preview
+make destroy GRAFANA_URL=...    # remove them all
 ```
+
+`GRAFANA_AUTH` takes `user:password` or a service-account token. Under the hood
+this is just `terraform apply` against the `grafana/grafana` provider; see
+`terraform/main.tf`.
 
 
 ## The 34 transformations

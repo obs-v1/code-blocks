@@ -1,29 +1,33 @@
-# transformations-examples — one dashboard per Grafana-13 transformation
+# transformations-examples — one dashboard per Grafana-13 transformation,
+# loaded into Grafana with Terraform (the same "dashboards as code" approach
+# as 1.5.6).
 #
-#   make load      # import every dashboard into Grafana via the API
-#   make list      # list what got loaded
-#   make delete    # remove them all
-#   make build     # regenerate dashboards/ + README.md from build_dashboards.py
+#   make apply     # load every dashboard in dashboards/ into Grafana
+#   make plan      # preview what would change
+#   make destroy   # remove them all
 #
 # Point it at your Grafana (defaults suit the course's kind setup, host :13000):
-#   make load GRAFANA_URL=http://<node-ip>:13000 GRAFANA_AUTH=admin:admin
-# GRAFANA_AUTH accepts "user:pass" or "Bearer <service-account-token>".
+#   make apply GRAFANA_URL=http://<node-ip>:13000 GRAFANA_AUTH=admin:admin
+# GRAFANA_AUTH takes "user:password" or a service-account token.
 #
 GRAFANA_URL  ?= http://localhost:13000
 GRAFANA_AUTH ?= admin:admin
-export GRAFANA_URL GRAFANA_AUTH
+TF = terraform -chdir=terraform
 
-.DEFAULT_GOAL := load
-.PHONY: load list delete build
+.DEFAULT_GOAL := apply
+.PHONY: init apply plan destroy fmt
 
-load: ## import every transformation dashboard
-	python3 apply.py load
+init: ## download the Grafana provider, prepare the working dir
+	$(TF) init -input=false
 
-list: ## list loaded transformation dashboards
-	python3 apply.py list
+apply: init ## load every dashboard into Grafana
+	$(TF) apply -auto-approve -var 'grafana_url=$(GRAFANA_URL)' -var 'grafana_auth=$(GRAFANA_AUTH)'
 
-delete: ## remove every transformation dashboard
-	python3 apply.py delete
+plan: init ## preview the changes
+	$(TF) plan -var 'grafana_url=$(GRAFANA_URL)' -var 'grafana_auth=$(GRAFANA_AUTH)'
 
-build: ## regenerate dashboards/ and README.md
-	python3 build_dashboards.py
+destroy: ## remove every dashboard this created
+	$(TF) destroy -auto-approve -var 'grafana_url=$(GRAFANA_URL)' -var 'grafana_auth=$(GRAFANA_AUTH)'
+
+fmt: ## format the terraform files
+	$(TF) fmt
