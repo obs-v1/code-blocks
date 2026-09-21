@@ -25,8 +25,8 @@ provider "grafana" {
 # The datasource, with the STABLE uid the dashboards reference (see 1.5.1).
 resource "grafana_data_source" "prometheus" {
   type       = "prometheus"
-  name       = "Prometheus"
-  uid        = "prometheus"
+  name       = "Prometheus1"
+  uid        = "prometheus1"
   url        = "http://prometheus-server.monitoring.svc"
   is_default = true
 }
