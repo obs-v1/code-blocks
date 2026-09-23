@@ -1,0 +1,122 @@
+{
+  "uid": "fleet-overview",
+  "title": "Fleet Overview — all bankobserve360 services",
+  "tags": ["obs-course", "fleet"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      { "name": "domain", "label": "Domain", "type": "query", "datasource": { "type": "prometheus", "uid": "prometheus" }, "query": { "query": "label_values(up{app!=\"\"}, domain)", "refId": "v" }, "refresh": 2, "sort": 1, "includeAll": true, "allValue": ".*", "multi": true, "current": { "text": "All", "value": "$__all" } }
+    ]
+  },
+  "annotations": { "list": [] },
+  "panels": [
+    { "id": 10, "type": "row", "title": "Fleet at a glance — every scraped service (by app label, not Java-only)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 1, "type": "stat", "title": "Services scraped", "description": "Distinct apps Prometheus is scraping (Java, Go, Python, Node) — the whole fleet, however it's instrumented.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "count(count by (app) (up{app!=\"\",domain=~\"$domain\"}))" } ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Services UP",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "count(max by (app) (up{app!=\"\",domain=~\"$domain\"}) == 1)" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Services DOWN",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "count(max by (app) (up{app!=\"\",domain=~\"$domain\"}) == 0) or vector(0)" } ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Business domains",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "count(count by (domain) (up{app!=\"\",domain=~\"$domain\"}))" } ]
+    },
+    {
+      "id": 5, "type": "bargauge", "title": "Services by language (polyglot fleet)", "description": "Why RED shows only 20: only the Java services expose Micrometer http_server_requests. Everyone is scraped; instrumentation differs.",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "refId": "A", "expr": "count(count by (app)(jvm_memory_used_bytes{app!=\"\",domain=~\"$domain\"})) or vector(0)", "legendFormat": "Java" },
+        { "refId": "B", "expr": "count(count by (app)(go_goroutines{app!=\"\",domain=~\"$domain\"})) or vector(0)", "legendFormat": "Go" },
+        { "refId": "C", "expr": "count(count by (app)(python_info{app!=\"\",domain=~\"$domain\"})) or vector(0)", "legendFormat": "Python" },
+        { "refId": "D", "expr": "count(count by (app)(nodejs_version_info{app!=\"\",domain=~\"$domain\"})) or vector(0)", "legendFormat": "Node.js" }
+      ]
+    },
+    { "id": 11, "type": "row", "title": "Every service — up or down", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+    {
+      "id": 6, "type": "table", "title": "Service inventory — the whole fleet", "description": "One row per service, whatever language. Green = up.",
+      "gridPos": { "h": 16, "w": 10, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Status" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "mappings", "value": [ { "type": "value", "options": { "1": { "text": "UP", "color": "green", "index": 0 }, "0": { "text": "DOWN", "color": "red", "index": 1 } } } ] }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, { "id": "custom.width", "value": 90 } ] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [ { "displayName": "Domain", "desc": false } ] },
+      "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "namespace": true, "pod": true, "instance": true, "job": true, "node": true, "pod_template_hash": true }, "renameByName": { "app": "Service", "domain": "Domain", "Value": "Status" } } } ],
+      "targets": [ { "refId": "A", "format": "table", "instant": true, "expr": "max by (app, domain) (up{app!=\"\",domain=~\"$domain\"})" } ]
+    },
+    {
+      "id": 7, "type": "state-timeline", "title": "Up / down over time — every service",
+      "gridPos": { "h": 16, "w": 14, "x": 10, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 80, "lineWidth": 0 },
+          "mappings": [ { "type": "value", "options": { "0": { "text": "Down", "color": "red", "index": 0 }, "1": { "text": "Up", "color": "green", "index": 1 } } } ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "never", "rowHeight": 0.9, "legend": { "displayMode": "hidden" } },
+      "targets": [ { "refId": "A", "expr": "max by (app) (up{app!=\"\",domain=~\"$domain\"})", "legendFormat": "{{app}}" } ]
+    },
+    { "id": 12, "type": "row", "title": "Traffic across the polyglot fleet (metric names differ by language)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 } },
+    {
+      "id": 8, "type": "timeseries", "title": "Java services — request rate  (Micrometer: http_server_requests_seconds, label: service)",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "sum by (service) (rate(http_server_requests_seconds_count[5m]))", "legendFormat": "{{service}}" } ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Go / Python / OTel services — request rate  (http_requests_total & http_request_duration_seconds, label: app)",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (app) (rate(http_requests_total{app!=\"\",domain=~\"$domain\"}[5m]))", "legendFormat": "{{app}}" },
+        { "refId": "B", "expr": "sum by (app) (rate(http_request_duration_seconds_count{app!=\"\",domain=~\"$domain\"}[5m]))", "legendFormat": "{{app}} (otel)" }
+      ]
+    },
+    {
+      "id": 13, "type": "bargauge", "title": "Services per business domain",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "continuous-BlPu" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "instant": true, "expr": "count by (domain) (max by (app, domain) (up{app!=\"\",domain=~\"$domain\"}))", "legendFormat": "{{domain}}" } ]
+    }
+  ]
+}
