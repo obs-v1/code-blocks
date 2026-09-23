@@ -1,4 +1,4 @@
-# 1.6.1 — build the full RED dashboard set for bankobserve360 in one run.
+# 1.6.9 — build the full RED dashboard set for bankobserve360 in one run.
 #
 # One grafana_dashboard resource fans out over every JSON in ../dashboards with
 # for_each, so a single `terraform apply` creates all six RED dashboards. Same

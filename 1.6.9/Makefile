@@ -1,4 +1,4 @@
-# 1.6.1 — the full RED dashboard set, loaded into Grafana with Terraform.
+# 1.6.9 — the full RED dashboard set, loaded into Grafana with Terraform.
 # One `make apply` creates all six RED dashboards at once.
 #
 #   make apply     # create every RED dashboard in dashboards/
