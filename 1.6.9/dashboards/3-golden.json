@@ -39,7 +39,7 @@
       "targets": [ { "refId": "A", "expr": "100 * (sum(rate(http_server_request_duration_seconds_count{service=~\"$service\",status=~\"5xx\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[5m])), 0.0001)" } ]
     },
     {
-      "id": 4, "type": "stat", "title": "Saturation (worst resource)", "description": "Signal 4 — the fullest resource anywhere: CPU, heap, DB pool or thread pool. Saturation is about the MOST constrained resource, not just CPU.",
+      "id": 4, "type": "stat", "title": "Saturation (busiest resource)", "description": "Signal 4 — the fullest resource anywhere: CPU, heap, DB pool or thread pool. Saturation is about the MOST constrained resource, not just CPU.",
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.7 }, { "color": "red", "value": 0.9 } ] } }, "overrides": [] },
