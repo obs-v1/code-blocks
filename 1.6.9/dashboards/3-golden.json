@@ -39,12 +39,12 @@
       "targets": [ { "refId": "A", "expr": "100 * (sum(rate(http_server_request_duration_seconds_count{service=~\"$service\",status=~\"5xx\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{service=~\"$service\"}[5m])), 0.0001)" } ]
     },
     {
-      "id": 4, "type": "stat", "title": "Saturation (busiest CPU)", "description": "Signal 4 — how full the most-loaded service is (process_cpu_usage).",
+      "id": 4, "type": "stat", "title": "Saturation (worst resource)", "description": "Signal 4 — the fullest resource anywhere: CPU, heap, DB pool or thread pool. Saturation is about the MOST constrained resource, not just CPU.",
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.7 }, { "color": "red", "value": 0.9 } ] } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
-      "targets": [ { "refId": "A", "expr": "max(process_cpu_usage{service=~\"$service\"})" } ]
+      "targets": [ { "refId": "A", "expr": "max(process_cpu_usage{service=~\"$service\"} or (sum by (service) (jvm_memory_used_bytes{service=~\"$service\",area=\"heap\"}) / clamp_min(sum by (service) (jvm_memory_max_bytes{service=~\"$service\",area=\"heap\"}), 1)) or (sum by (service) (hikaricp_connections_active{service=~\"$service\"}) / clamp_min(sum by (service) (hikaricp_connections_max{service=~\"$service\"}), 1)) or (sum by (service) (tomcat_threads_busy_threads{service=~\"$service\"}) / clamp_min(sum by (service) (tomcat_threads_config_max_threads{service=~\"$service\"}), 1)))" } ]
     },
     { "id": 11, "type": "row", "title": "The signals over time", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 } },
     {
@@ -71,12 +71,17 @@
       ]
     },
     {
-      "id": 7, "type": "timeseries", "title": "Saturation by service (CPU)",
+      "id": 7, "type": "timeseries", "title": "Saturation by resource — fleet max (CPU · heap · DB pool · thread pool)", "description": "Which resource is the bottleneck. Each line is the busiest service for that resource, so you see whether saturation is coming from CPU, heap, the DB connection pool, or the request-thread pool.",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.7 }, { "color": "red", "value": 0.9 } ] } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "refId": "A", "expr": "topk(12, process_cpu_usage{service=~\"$service\"})", "legendFormat": "{{service}}" } ]
+      "targets": [
+        { "refId": "A", "expr": "max(process_cpu_usage{service=~\"$service\"})", "legendFormat": "CPU" },
+        { "refId": "B", "expr": "max(sum by (service) (jvm_memory_used_bytes{service=~\"$service\",area=\"heap\"}) / clamp_min(sum by (service) (jvm_memory_max_bytes{service=~\"$service\",area=\"heap\"}), 1))", "legendFormat": "Heap" },
+        { "refId": "C", "expr": "max(sum by (service) (hikaricp_connections_active{service=~\"$service\"}) / clamp_min(sum by (service) (hikaricp_connections_max{service=~\"$service\"}), 1))", "legendFormat": "DB pool" },
+        { "refId": "D", "expr": "max(sum by (service) (tomcat_threads_busy_threads{service=~\"$service\"}) / clamp_min(sum by (service) (tomcat_threads_config_max_threads{service=~\"$service\"}), 1))", "legendFormat": "Thread pool" }
+      ]
     }
   ]
 }
