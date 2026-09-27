@@ -15,20 +15,20 @@
   "panels": [
     { "id": 10, "type": "row", "title": "Utilization — how busy each resource is", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
     {
-      "id": 1, "type": "bargauge", "title": "CPU utilization (top 12)", "description": "process_cpu_usage — the process's share of a core.",
+      "id": 1, "type": "bargauge", "title": "CPU utilization (top 5)", "description": "process_cpu_usage — the process's share of a core.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.7 }, { "color": "red", "value": 0.9 } ] } }, "overrides": [] },
       "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [ { "refId": "A", "instant": true, "expr": "topk(12, process_cpu_usage{service=~\"$service\"})", "legendFormat": "{{service}}" } ]
+      "targets": [ { "refId": "A", "instant": true, "expr": "topk(5, process_cpu_usage{service=~\"$service\"})", "legendFormat": "{{service}}" } ]
     },
     {
-      "id": 2, "type": "bargauge", "title": "Heap utilization (top 12)", "description": "jvm heap used / max.",
+      "id": 2, "type": "bargauge", "title": "Heap utilization (top 5)", "description": "jvm heap used / max.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.75 }, { "color": "red", "value": 0.9 } ] } }, "overrides": [] },
       "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [ { "refId": "A", "instant": true, "expr": "topk(12, sum by (service) (jvm_memory_used_bytes{service=~\"$service\",area=\"heap\"}) / clamp_min(sum by (service) (jvm_memory_max_bytes{service=~\"$service\",area=\"heap\"}), 1))", "legendFormat": "{{service}}" } ]
+      "targets": [ { "refId": "A", "instant": true, "expr": "topk(5, sum by (service) (jvm_memory_used_bytes{service=~\"$service\",area=\"heap\"}) / clamp_min(sum by (service) (jvm_memory_max_bytes{service=~\"$service\",area=\"heap\"}), 1))", "legendFormat": "{{service}}" } ]
     },
     { "id": 11, "type": "row", "title": "Saturation — queued / waiting work (the leading indicator)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 } },
     {
