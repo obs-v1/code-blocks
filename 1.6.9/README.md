@@ -21,6 +21,38 @@ make apply   GRAFANA_URL=http://<node-ip>:13000 GRAFANA_AUTH=admin:admin
 make destroy GRAFANA_URL=...
 ```
 
+## Demo scenarios — make the dashboards light up
+
+Each dashboard has a scenario that feeds the bank traffic on purpose, so you can
+watch the signals move in real time. They run as a load Job inside the cluster,
+so run these where `kubectl` reaches the `bankobs` namespace (e.g. the lab box).
+
+```bash
+make scenario-red      # RED / Golden : steady traffic + intentional 5xx errors
+make scenario-use      # USE          : saturate CPU, threads and the DB pool
+make scenario-golden   # Golden       : latency + traffic + errors + saturation together
+
+make scenario-watch SCEN=red   # tail the generated traffic
+make scenario-stop             # stop & remove every scenario
+```
+
+- **RED** hits real routes and, `ERROR_PCT`% of the time, the service's catch-all
+  path (`…/boom`) which returns **5xx** — so Rate climbs, the Errors panel turns
+  red, and Duration ticks up. Validated: the 5xx counter and error-ratio panel
+  move as soon as it starts.
+- **USE** fires DB-touching calls at high `CONCURRENCY` (120). Validated live:
+  CPU **91%**, HikariCP **active 17/20** with **23 connections pending** (the
+  saturation signal), p95 latency **~400 ms**, ~100 req/s.
+- **Golden** is the RED mix run hot enough to also saturate — all four signals
+  move at once.
+
+Everything is tunable:
+```bash
+make scenario-use TARGET=ledger-service PORT=8002 DURATION=600 CONCURRENCY=200
+```
+`TARGET` / `PORT` / `DURATION` / `CONCURRENCY` / `ERROR_PCT` all have sane defaults
+(see the top of the `Makefile`). Default target is `account-service:8001`.
+
 ## Metrics it queries
 
 - **Requests (RED, Golden)** — OpenTelemetry HTTP semconv:

@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-__SCEN__
+  namespace: __NS__
+  labels: { app: bankobs-load, scenario: __SCEN__ }
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels: { app: bankobs-load, scenario: __SCEN__ }
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: load
+        image: __IMAGE__
+        command: ["sh", "/scripts/run.sh"]
+        env:
+        - { name: TARGET,      value: "__TARGET__" }
+        - { name: PORT,        value: "__PORT__" }
+        - { name: DURATION,    value: "__DURATION__" }
+        - { name: CONCURRENCY, value: "__CONCURRENCY__" }
+        - { name: ERROR_PCT,   value: "__ERROR_PCT__" }
+        volumeMounts:
+        - { name: script, mountPath: /scripts }
+      volumes:
+      - name: script
+        configMap: { name: load-__SCEN__ }
