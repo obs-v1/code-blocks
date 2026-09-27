@@ -1,0 +1,24 @@
+# prom-server-A : the forwarder.
+# Self-scrapes (default), then remote_writes everything it holds to server B.
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+server:
+  global:
+    external_labels:
+      prom_server: server-a          # so B can tell A's data apart
+  remoteWrite:                        # <-- the whole point of the lab
+    - url: http://prom-b-server/api/v1/write
+
+alertmanager:             { enabled: false }
+prometheus-node-exporter: { enabled: false }
+kube-state-metrics:       { enabled: false }
+prometheus-pushgateway:   { enabled: false }

@@ -1,0 +1,52 @@
+{
+  "uid": "red-misfits",
+  "title": "1.6.9 · RED Lab — the misfits (queues & batch)",
+  "tags": ["obs-course", "1.6.9", "red", "misfits"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "text", "title": "The systems RED cannot describe",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "RED describes anything that **serves requests**. Queues and batch jobs do not — a queue's health is its **depth** and **consumer lag**; a batch job's health is **time since its last success**. Those need their own exporters (RabbitMQ/Kafka, or a custom success-timestamp gauge). The panels below are the **canonical queries** — they light up once those metrics exist in your fleet. The uptime panel uses a metric every service already exports." }
+    },
+    { "id": 20, "type": "row", "title": "Queues — depth & consumer lag  (needs a broker exporter)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 } },
+    {
+      "id": 2, "type": "timeseries", "title": "Queue depth", "description": "Messages waiting. Template: rabbitmq_queue_messages_ready (or kafka topic backlog). Empty until a broker exporter runs.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "sum by (queue) (rabbitmq_queue_messages_ready)", "legendFormat": "{{queue}}" } ]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Consumer lag", "description": "How far consumers trail producers. Template: kafka_consumergroup_lag. Empty until a Kafka exporter runs.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1000 } ] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}}/{{topic}}" } ]
+    },
+    { "id": 21, "type": "row", "title": "Batch — time since last success  (needs a success-timestamp gauge)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 } },
+    {
+      "id": 4, "type": "timeseries", "title": "Time since last successful run", "description": "The real batch SLI. Template: time() - my_job_last_success_timestamp_seconds. Alert when it exceeds the job's period.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [ { "refId": "A", "expr": "time() - max by (job) (my_job_last_success_timestamp_seconds)", "legendFormat": "{{job}}" } ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Process uptime (real — every service exports this)", "description": "time() - process_start_time_seconds. A drop to zero is a restart; for a long-running worker, a short uptime that keeps resetting means crash-looping.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 8, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "topk(10, time() - process_start_time_seconds{namespace=\"bankobs\"})", "legendFormat": "{{service}}" } ]
+    }
+  ]
+}

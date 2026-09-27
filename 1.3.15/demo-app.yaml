@@ -1,0 +1,50 @@
+# Two identical apps in the `demo` namespace. One opts IN with the
+# prometheus.io/scrape annotations, the other carries none. Prometheus should
+# discover both pods but scrape ONLY the annotated one — that is the whole point.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-annotated
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: example-annotated }
+  template:
+    metadata:
+      labels: { app: example-annotated }
+      annotations:
+        prometheus.io/scrape: "true"      # <-- opt IN
+        prometheus.io/port:   "8080"      # <-- scrape this port
+        prometheus.io/path:   "/metrics"  # <-- on this path
+    spec:
+      containers:
+        - name: app
+          image: quay.io/brancz/prometheus-example-app:v0.5.0
+          ports:
+            - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-plain
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: example-plain }
+  template:
+    metadata:
+      labels: { app: example-plain }
+      # No prometheus.io/scrape annotation -> Prometheus discovers it, then drops it.
+    spec:
+      containers:
+        - name: app
+          image: quay.io/brancz/prometheus-example-app:v0.5.0
+          ports:
+            - containerPort: 8080

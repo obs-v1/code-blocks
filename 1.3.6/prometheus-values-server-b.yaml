@@ -1,0 +1,25 @@
+# prom-server-B : the receiver.
+# Only self-scrapes; everything else lands here over A's remote_write.
+scrapeConfigs:
+  kubernetes-api-servers:            { enabled: false }
+  kubernetes-nodes:                  { enabled: false }
+  kubernetes-nodes-cadvisor:         { enabled: false }
+  kubernetes-pods:                   { enabled: false }
+  kubernetes-pods-slow:              { enabled: false }
+  kubernetes-service-endpoints:      { enabled: false }
+  kubernetes-service-endpoints-slow: { enabled: false }
+  kubernetes-services:               { enabled: false }
+  prometheus-pushgateway:            { enabled: false }
+
+server:
+  global:
+    external_labels:
+      prom_server: server-b
+  extraFlags:
+    - web.enable-lifecycle                 # chart default
+    - web.enable-remote-write-receiver     # accept A's remote_write
+
+alertmanager:             { enabled: false }
+prometheus-node-exporter: { enabled: false }
+kube-state-metrics:       { enabled: false }
+prometheus-pushgateway:   { enabled: false }

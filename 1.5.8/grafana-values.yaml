@@ -1,0 +1,42 @@
+# 1.5.8 — a FULLY provisioned Grafana (the capstone).
+#
+# Everything from the chapter, wired up as code: the Prometheus datasource with a
+# stable UID (1.5.1), plus every dashboard from 1.5.2-1.5.7 auto-loaded. Nothing
+# is clicked; `make setup` yields a complete, reproducible Grafana.
+#
+# Dashboards arrive via the sidecar: it watches ConfigMaps labelled
+# grafana_dashboard=1 (the Makefile creates one per dashboard JSON) and loads them.
+
+service:
+  type: NodePort
+  nodePort: 31300                # kind maps host :13000 -> this nodePort
+
+adminUser: admin
+adminPassword: admin             # lab only
+
+persistence:
+  enabled: false
+
+# --- datasource, provisioned from a file with a stable UID (see 1.5.1) ---
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc
+        isDefault: true
+
+# --- dashboards, loaded from labelled ConfigMaps by the sidecar ---
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /tmp/dashboards
+    provider:
+      name: obs-course
+      folder: "Observability Course"
+      foldersFromFilesStructure: false

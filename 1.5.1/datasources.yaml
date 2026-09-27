@@ -1,0 +1,31 @@
+# Reference: a full Grafana datasource-provisioning file.
+#
+# Grafana reads files like this from /etc/grafana/provisioning/datasources/ on
+# startup. The Prometheus entry is the one the lab actually deploys (embedded in
+# grafana-values.yaml); Loki and Jaeger are here as the ready-to-use pattern for
+# when you run those backends — metrics, logs, and traces, side by side.
+#
+# The important detail on every entry is the STABLE `uid`. Dashboards reference a
+# datasource by its UID, not its display name — so a fixed, meaningful UID is what
+# makes a dashboard's JSON portable across dev / staging / prod. Random per-install
+# UIDs are exactly what break exported dashboards when you import them elsewhere.
+apiVersion: 1
+datasources:
+  - name: Prometheus          # metrics
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus-server.monitoring.svc
+    isDefault: true
+
+  - name: Loki                # logs  (wire up when you run Loki)
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki.monitoring.svc:3100
+
+  - name: Jaeger              # traces (wire up when you run Jaeger)
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger-query.observability.svc:16686

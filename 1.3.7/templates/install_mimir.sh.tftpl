@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# installs grafana mimir (single binary) and runs it under systemd
+set -euo pipefail
+
+MIMIR_VERSION="${mimir_version}"
+
+# binary
+curl -sfLo /usr/local/bin/mimir \
+  "https://github.com/grafana/mimir/releases/download/mimir-$${MIMIR_VERSION}/mimir-linux-amd64"
+chmod +x /usr/local/bin/mimir
+
+# user + data dirs
+id mimir &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin mimir
+mkdir -p /etc/mimir /var/lib/mimir
+
+# config was uploaded to /tmp by terraform
+mv /tmp/mimir.yaml /etc/mimir/mimir.yaml
+chown -R mimir:mimir /etc/mimir /var/lib/mimir
+
+cat > /etc/systemd/system/mimir.service <<'UNIT'
+[Unit]
+Description=Grafana Mimir (single process)
+After=network-online.target
+
+[Service]
+User=mimir
+Group=mimir
+Type=simple
+WorkingDirectory=/var/lib/mimir
+ExecStart=/usr/local/bin/mimir -config.file=/etc/mimir/mimir.yaml
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now mimir
+
+echo "mimir $${MIMIR_VERSION} is up on :9009  (push -> /api/v1/push, query -> /prometheus/api/v1/query)"

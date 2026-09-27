@@ -1,0 +1,78 @@
+# Production-shaped Mimir config, shared by every component.
+# Each container runs the same file but a different -target (distributor,
+# ingester, querier, ...). The three things that make this "prod" and not
+# the single-binary lab: a gossip ring (memberlist), object storage for
+# blocks, and replication_factor 3. Multi-tenancy is on.
+multitenancy_enabled: true
+
+server:
+  http_listen_port: 9009
+  grpc_listen_port: 9095
+  grpc_server_max_recv_msg_size: 104857600
+  grpc_server_max_send_msg_size: 104857600
+  log_level: warn
+
+# Gossip ring - every component discovers the others through memberlist,
+# so there is no Consul/etcd to run. Seeded off the ingesters.
+memberlist:
+  bind_port: 7946
+  join_members:
+    - mimir-ingester-1:7946
+    - mimir-ingester-2:7946
+    - mimir-ingester-3:7946
+
+ingester_client:
+  grpc_client_config:
+    max_recv_msg_size: 104857600
+    max_send_msg_size: 104857600
+    grpc_compression: gzip
+
+ingester:
+  ring:
+    kvstore:
+      store: memberlist
+    replication_factor: 3          # writes land on 3 ingesters - survives a node loss
+
+# Durable, long-term storage. MinIO here; in real prod point this at S3/GCS/Azure.
+common:
+  storage:
+    backend: s3
+    s3:
+      endpoint: minio:9000
+      bucket_name: mimir-blocks
+      access_key_id: mimir
+      secret_access_key: supersecret123
+      insecure: true               # MinIO over http; use TLS + IAM in real prod
+
+blocks_storage:
+  tsdb:
+    dir: /data/tsdb
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+
+store_gateway:
+  sharding_ring:
+    kvstore:
+      store: memberlist
+    replication_factor: 3
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+
+# Queriers pull work from the query-frontend
+frontend_worker:
+  frontend_address: mimir-query-frontend:9095
+
+# keep the activity log on a writable path
+activity_tracker:
+  filepath: /data/metrics-activity.log
+
+# Per-tenant guardrails so one tenant can't take the cluster down
+limits:
+  ingestion_rate: 100000
+  ingestion_burst_size: 200000
+  max_global_series_per_user: 1000000
+  compactor_blocks_retention_period: 90d

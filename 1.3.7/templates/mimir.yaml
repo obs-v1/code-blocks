@@ -1,0 +1,50 @@
+# Single-process Grafana Mimir for the lab - filesystem storage, one node.
+# Runs every component in one binary (default -target=all). NOT for production.
+# Mimir's own demo config already pins the tricky bits (instance_addr and an
+# absolute activity_tracker path), so this comes up clean on a fresh EC2 box.
+multitenancy_enabled: true         # require X-Scope-OrgID (tenant) on every request
+
+server:
+  http_listen_port: 9009
+  log_level: warn
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /var/lib/mimir/data/blocks
+  tsdb:
+    dir: /var/lib/mimir/tsdb
+  bucket_store:
+    sync_dir: /var/lib/mimir/tsdb-sync
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1        # pin it - EC2 nics arent eth0/en0
+    kvstore:
+      store: memberlist
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+    replication_factor: 1           # single node
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+compactor:
+  data_dir: /var/lib/mimir/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+
+ruler_storage:
+  backend: filesystem
+  filesystem:
+    dir: /var/lib/mimir/rules
+
+# keep the activity log on a writable path (service runs as the mimir user)
+activity_tracker:
+  filepath: /var/lib/mimir/metrics-activity.log

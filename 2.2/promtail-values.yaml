@@ -1,0 +1,63 @@
+# 2.2.10 lab — Promtail: discover bankobs pods, run the four pipeline stages
+# (parse, promote, timestamp, drop), and ship to Loki. The two teaching stages
+# the lab asserts on are DROP (health-checks) and REPLACE (scrub a password).
+config:
+  clients:
+    - url: http://loki-gateway.monitoring.svc/loki/api/v1/push
+
+  snippets:
+    # Only scrape the bankobs fleet + our planted leaky demo pod.
+    scrapeConfigs: |
+      - job_name: bankobs
+        kubernetes_sd_configs:
+          - role: pod
+        pipeline_stages:
+          # 1) PARSE — the runtime wraps each line; unwrap the container format,
+          #    then parse our app JSON so later stages have fields to work with.
+          - cri: {}
+          - json:
+              expressions:
+                level: level
+                service: service
+                event: event
+                ts: timestamp
+                msg: message
+          # 2) DROP — health/probe noise never reaches the store (2.1.9 net).
+          #    Applied fleet-wide: a healthcheck is noise in every namespace.
+          - drop:
+              expression: ".*(/health|/healthz|/actuator/health|healthcheck|readiness|liveness).*"
+              drop_counter_reason: "healthcheck"
+          # 3) SCRUB — second-layer redaction: mask any leaked password/token/PAN.
+          - replace:
+              expression: '(?i)(password|passwd|pwd|token|secret)["\s:=]+([^\s",}]+)'
+              replace: '${1}=***REDACTED***'
+          - replace:
+              expression: '\b(\d{13,19})\b'
+              replace: '***PAN-REDACTED***'
+          # 4) TIMESTAMP — trust the app's clock, not ingestion time.
+          - timestamp:
+              source: ts
+              format: RFC3339Nano
+              action_on_failure: fudge
+          # PROMOTE — only enumerable fields become index labels. NEVER trace_id.
+          - labels:
+              level:
+              service:
+        relabel_configs:
+          # keep only the bankobs namespace + the planted leaky demo
+          - source_labels: [__meta_kubernetes_namespace]
+            regex: "bankobs|demo"
+            action: keep
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          # THE PATH: point Promtail at the container's log files on the node
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: "/"
+            replacement: "/var/log/pods/*$1/*.log"
+            target_label: __path__

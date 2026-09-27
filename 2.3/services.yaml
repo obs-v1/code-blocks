@@ -1,0 +1,81 @@
+# 2.3.10 lab — two services from one image, plus a driver that calls the frontend.
+# service-a (FRONTEND) --HTTP--> service-b (BACKEND), traceparent propagated,
+# both exporting spans to Jaeger. One trace should contain BOTH services.
+apiVersion: v1
+kind: Namespace
+metadata: { name: tracing }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-b, namespace: tracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-b } }
+  template:
+    metadata: { labels: { app: service-b } }
+    spec:
+      containers:
+        - name: app
+          image: trace-lab:1.0        # built + kind-loaded by the Makefile
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "backend" }
+            - { name: OTEL_SERVICE_NAME, value: "service-b" }
+            - { name: OTEL_TRACES_EXPORTER, value: "otlp" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER, value: "none" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://jaeger-collector.tracing.svc:4317" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-b, namespace: tracing }
+spec:
+  selector: { app: service-b }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-a, namespace: tracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-a } }
+  template:
+    metadata: { labels: { app: service-a } }
+    spec:
+      containers:
+        - name: app
+          image: trace-lab:1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "frontend" }
+            - { name: BACKEND_URL, value: "http://service-b.tracing.svc:8080/work" }
+            - { name: OTEL_SERVICE_NAME, value: "service-a" }
+            - { name: OTEL_TRACES_EXPORTER, value: "otlp" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER, value: "none" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://jaeger-collector.tracing.svc:4317" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-a, namespace: tracing }
+spec:
+  selector: { app: service-a }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+# driver: hit the frontend every few seconds so traces keep flowing
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: driver, namespace: tracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: driver } }
+  template:
+    metadata: { labels: { app: driver } }
+    spec:
+      containers:
+        - name: driver
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh","-c"]
+          args: ["while true; do curl -s http://service-a.tracing.svc:8080/call >/dev/null; sleep 4; done"]

@@ -1,0 +1,110 @@
+# Mimir in its PRODUCTION shape - the microservices architecture, run locally.
+#
+#   write path:  Prometheus --remote_write--> distributor --> ingester x3 (RF3) --> object storage
+#   read  path:  Grafana --> query-frontend --> querier --> { ingesters (recent) , store-gateway (historical) }
+#   background:  compactor merges blocks in object storage
+#   ring:        memberlist gossip ties every component together (no Consul/etcd)
+#
+#   push metrics ->  http://localhost:9009/api/v1/push          (distributor)
+#   query        ->  http://localhost:9010/prometheus/...       (query-frontend)
+#   MinIO console -> http://localhost:9001   (mimir / supersecret123)
+#
+x-mimir: &mimir
+  image: grafana/mimir:2.14.2
+  volumes:
+    - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+  restart: unless-stopped
+
+services:
+  # ---------- object storage ----------
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: mimir
+      MINIO_ROOT_PASSWORD: supersecret123
+    ports:
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-setup:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "until mc alias set m http://minio:9000 mimir supersecret123; do sleep 2; done;
+                  mc mb --ignore-existing m/mimir-blocks;
+                  echo 'bucket ready'"
+
+  # ---------- write path ----------
+  mimir-distributor:
+    <<: *mimir
+    command: ["-target=distributor", "-config.file=/etc/mimir/mimir.yaml"]
+    ports:
+      - "9009:9009"          # remote_write push endpoint
+    depends_on: [mimir-ingester-1, mimir-ingester-2, mimir-ingester-3]
+
+  mimir-ingester-1:
+    <<: *mimir
+    command: ["-target=ingester", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - ing1:/data
+    depends_on: [minio-setup]
+
+  mimir-ingester-2:
+    <<: *mimir
+    command: ["-target=ingester", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - ing2:/data
+    depends_on: [minio-setup]
+
+  mimir-ingester-3:
+    <<: *mimir
+    command: ["-target=ingester", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - ing3:/data
+    depends_on: [minio-setup]
+
+  # ---------- read path ----------
+  mimir-query-frontend:
+    <<: *mimir
+    command: ["-target=query-frontend", "-config.file=/etc/mimir/mimir.yaml"]
+    ports:
+      - "9010:9009"          # query endpoint (Prometheus-compatible API)
+
+  mimir-querier:
+    <<: *mimir
+    command: ["-target=querier", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - querier:/data
+    depends_on: [mimir-query-frontend, mimir-store-gateway]
+
+  mimir-store-gateway:
+    <<: *mimir
+    command: ["-target=store-gateway", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - sg:/data
+    depends_on: [minio-setup]
+
+  # ---------- background ----------
+  mimir-compactor:
+    <<: *mimir
+    command: ["-target=compactor", "-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - ./mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - comp:/data
+    depends_on: [minio-setup]
+
+volumes:
+  minio-data:
+  ing1:
+  ing2:
+  ing3:
+  querier:
+  sg:
+  comp:
