@@ -1,0 +1,105 @@
+{
+  "uid": "biz-payments",
+  "title": "Business — UPI Payments",
+  "tags": ["business", "payments", "upi", "bankobserve360"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    { "id": 100, "type": "row", "title": "Right now", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 1, "type": "stat", "title": "Payments / min", "description": "UPI transactions completing per minute — how busy the rail is. rate(upi_transaction_total) x 60.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(upi_transaction_total[5m])) * 60" } ]
+    },
+    {
+      "id": 2, "type": "stat", "title": "Money flow (₹ / min)", "description": "Rupees moving through UPI per minute. rate(upi_daily_volume_total) x 60 — upi_daily_volume_total is incremented by each payment's amount.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyINR", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(upi_daily_volume_total[5m])) * 60" } ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Success rate", "description": "Share of UPI /pay attempts that settle (HTTP 2xx). 2xx / all responses on the /api/v1/upi/pay route — failures (bad VPA, over-limit, fraud block, debit/credit error) show as the shortfall below 100%.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "decimals": 2, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 95 }, { "color": "green", "value": 99 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "100 * sum(rate(http_server_requests_total{service=\"upi-service\",path=\"/api/v1/upi/pay\",status=\"2xx\"}[5m])) / clamp_min(sum(rate(http_server_requests_total{service=\"upi-service\",path=\"/api/v1/upi/pay\"}[5m])), 0.0001)" } ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Payment latency (p99)", "description": "99th-percentile end-to-end UPI latency. histogram_quantile over upi_p99_latency_seconds_bucket.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "decimals": 3, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "histogram_quantile(0.99, sum by (le) (rate(upi_p99_latency_seconds_bucket[5m])))" } ]
+    },
+
+    { "id": 101, "type": "row", "title": "Over the selected time range", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 } },
+    {
+      "id": 5, "type": "stat", "title": "Payments (range)", "description": "Total UPI payments in the dashboard's time window. increase(upi_transaction_total[$__range]).",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(upi_transaction_total[$__range]))" } ]
+    },
+    {
+      "id": 6, "type": "stat", "title": "₹ transacted (range)", "description": "Total rupees moved through UPI in the window. increase(upi_daily_volume_total[$__range]).",
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyINR", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(upi_daily_volume_total[$__range]))" } ]
+    },
+    {
+      "id": 7, "type": "stat", "title": "Avg ticket size", "description": "Average rupees per payment over the window = ₹ transacted / payments.",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyINR", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "sum(increase(upi_daily_volume_total[$__range])) / clamp_min(sum(increase(upi_transaction_total[$__range])), 1)" } ]
+    },
+
+    { "id": 102, "type": "row", "title": "Trends", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 } },
+    {
+      "id": 8, "type": "timeseries", "title": "Payments per minute — attempted vs completed", "description": "Attempted = every response on /api/v1/upi/pay; completed = payments that fully settled (upi_transaction_total). The gap between the lines is failed / blocked payments.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "completed" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }, { "matcher": { "id": "byName", "options": "attempted" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] } ] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_requests_total{service=\"upi-service\",path=\"/api/v1/upi/pay\"}[5m])) * 60", "legendFormat": "attempted" },
+        { "refId": "B", "expr": "sum(rate(upi_transaction_total[5m])) * 60", "legendFormat": "completed" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Money throughput (₹ / min)", "description": "Rupees per minute flowing through UPI.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyINR", "custom": { "drawStyle": "line", "fillOpacity": 20, "showPoints": "never", "gradientMode": "opacity" }, "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [ { "refId": "A", "expr": "sum(rate(upi_daily_volume_total[5m])) * 60", "legendFormat": "₹ / min" } ]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Payment latency (p50 / p95 / p99)", "description": "UPI end-to-end latency percentiles.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 21 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(upi_p99_latency_seconds_bucket[5m])))", "legendFormat": "p50" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(upi_p99_latency_seconds_bucket[5m])))", "legendFormat": "p95" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(upi_p99_latency_seconds_bucket[5m])))", "legendFormat": "p99" }
+      ]
+    }
+  ]
+}
