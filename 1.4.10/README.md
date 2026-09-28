@@ -31,6 +31,12 @@ make rules     # the rules Prometheus loaded (health should be "ok")
 make verify    # query the recorded series job:prometheus_http_requests:rate5m
 ```
 
+> **If the rules don't show up:** after a `helm upgrade` the new rules land in
+> the `prometheus-server` ConfigMap immediately, but the projected file inside
+> the pod can take a minute to sync before the reloader picks it up. Force it:
+> `kubectl -n monitoring rollout restart deploy/prometheus-server` (or delete the
+> pod). Confirm with `make rules` — the groups appear with `health: ok`.
+
 In the UI (`http://<node>:30990`): **Status → Rules** lists the groups, and a
 query for `job:prometheus_http_requests:rate5m` returns the pre-computed series —
 compare it to running `sum(rate(prometheus_http_requests_total[5m])) by (job)`

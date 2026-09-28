@@ -1,0 +1,59 @@
+server:
+  service:                             # expose the UI on the kind host-port mapping
+    type: NodePort
+    nodePort: 30990                    # kind maps host :9090 -> this NodePort
+
+# ── Alerting rules ───────────────────────────────────────────────────────────
+# The prometheus-community/prometheus chart mounts this straight into the server
+# as alerting_rules.yml. On each evaluation the rule's expr is checked: while
+# false the alert is Inactive; when it turns true it goes Pending and starts the
+# `for` timer; only if it stays true for the whole `for` does it become Firing
+# and get handed to Alertmanager, which routes it by its labels.
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      # ── The four fields, straight from the course text (symptom-based) ──────
+      # http_requests_total is illustrative — your apps expose it, this lab may
+      # not, so this rule shows the STRUCTURE: expr + for + labels + annotations.
+      - name: slo.alerts
+        rules:
+          - alert: HighErrorRate
+            expr: |
+              sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+              / sum(rate(http_requests_total[5m])) by (service) > 0.01
+            for: 10m                         # must hold 10m before firing — defeats flapping
+            labels:
+              severity: critical             # the routing decision: critical pages
+            annotations:
+              summary: "{{ $labels.service }} error rate is {{ $value | humanizePercentage }}"
+              runbook: "https://runbooks.example.com/high-error-rate"
+
+      # ── Alert on NO DATA — absent() returns 1 when the selector matches
+      #    nothing. job=payments isn't scraped here, so this FIRES: you get to
+      #    watch Inactive -> Pending -> Firing, and it teaches the most common
+      #    blind spot (a metric that simply stops arriving fires nothing). ──────
+      - name: nodata.alerts
+        rules:
+          - alert: PaymentsMetricsMissing
+            expr: absent(up{job="payments"})
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "No metrics from job=payments for 2m — scrape target vanished?"
+              runbook: "https://runbooks.example.com/target-missing"
+            # Range form ignores a single skipped scrape:
+            #   expr: absent_over_time(up{job="payments"}[10m])
+
+      # ── A symptom alert on REAL lab data, threshold low on purpose so it fires
+      #    quickly and you can see {{ $value }} templating render live. ─────────
+      - name: lab.alerts
+        rules:
+          - alert: PrometheusApiActive
+            expr: sum(rate(prometheus_http_requests_total[5m])) > 0
+            for: 1m
+            labels:
+              severity: warning              # warning goes to a channel, not the pager
+            annotations:
+              summary: "Prometheus API is handling {{ $value | humanize }} req/s"
+              runbook: "https://runbooks.example.com/prometheus-api"
