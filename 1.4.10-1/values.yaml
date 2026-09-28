@@ -1,0 +1,12 @@
+# kube-prometheus-stack overlay — expose Prometheus on the kind host-port.
+# The Operator's default ruleSelector matches PrometheusRule objects labelled
+# `release: kube-prometheus-stack` (this release name), which is exactly the
+# label on recording-rules.yaml — no extra config needed.
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30990                    # kind maps host :9090 -> this NodePort
+  prometheusSpec:
+    scrapeInterval: "15s"
+    # ruleSelectorNilUsesHelmValues defaults to true -> selects release-labelled
+    # PrometheusRules. Leave it; that's what makes our label work.

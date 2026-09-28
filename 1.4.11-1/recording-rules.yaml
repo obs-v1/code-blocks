@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: custom-recording-rules
+  namespace: monitoring
+  labels:
+    # Must match the ruleSelector on your Prometheus CR. kube-prometheus-stack's
+    # default ruleSelector matches `release: <helm-release-name>`, so this label
+    # is how the Operator discovers the rule and loads it into Prometheus.
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: custom_metrics.rules
+      interval: 15s
+      rules:
+        # The example you started from — a per-job sum (level:metric:operation).
+        - record: job:http_requests_totalx:sum
+          expr: sum by (job) (http_requests_total)
+
+        # The canonical cookbook rule (illustrative metric — shows the shape).
+        - record: job:http_requests:rate5m
+          expr: sum(rate(http_requests_total[5m])) by (job)
+
+        # These fire in this lab (Prometheus self-scrape), so you can watch the
+        # new series appear. Same level:metric:operation naming convention.
+        - record: job:prometheus_http_requests:rate5m
+          expr: sum(rate(prometheus_http_requests_total[5m])) by (job)
+        - record: instance:prometheus_tsdb_head_series:sum
+          expr: sum(prometheus_tsdb_head_series) by (instance)

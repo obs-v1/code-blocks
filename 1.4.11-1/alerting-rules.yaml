@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: custom-alerting-rules
+  namespace: monitoring
+  labels:
+    # Same discovery label — must match the Prometheus CR ruleSelector.
+    release: kube-prometheus-stack
+spec:
+  groups:
+    # ── The four fields, as a CRD (symptom-based) ─────────────────────────────
+    - name: custom_slo.alerts
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            / sum(rate(http_requests_total[5m])) by (service) > 0.01
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.service }} error rate is {{ $value | humanizePercentage }}"
+            runbook: "https://runbooks.example.com/high-error-rate"
+
+    # ── Alert on NO DATA — absent() is 1 when the selector matches nothing.
+    #    job=payments isn't scraped here, so this fires. ─────────────────────────
+    - name: custom_nodata.alerts
+      rules:
+        - alert: PaymentsMetricsMissing
+          expr: absent(up{job="payments"})
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No metrics from job=payments for 2m — scrape target vanished?"
+            runbook: "https://runbooks.example.com/target-missing"
+
+    # ── Symptom alert on real lab data; low threshold so it fires quickly. ──────
+    - name: custom_lab.alerts
+      rules:
+        - alert: PrometheusApiActive
+          expr: sum(rate(prometheus_http_requests_total[5m])) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus API is handling {{ $value | humanize }} req/s"
+            runbook: "https://runbooks.example.com/prometheus-api"
