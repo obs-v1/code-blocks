@@ -1,0 +1,55 @@
+server:
+  service:                             # expose the UI on the kind host-port mapping
+    type: NodePort
+    nodePort: 30990                    # kind maps host :9090 -> this NodePort
+
+# ── Recording rules ──────────────────────────────────────────────────────────
+# The prometheus-community/prometheus chart mounts this straight into the server
+# as recording_rules.yml. Each rule runs on its group's `interval`, writes ONE
+# new series, and every dashboard/alert then reads that cheap result instead of
+# re-deriving it — cost moves from query-time to ingestion-time.
+serverFiles:
+  recording_rules.yml:
+    groups:
+      # ── The canonical example, straight from the course text ──────────────
+      # http_requests_total is illustrative — your apps expose it, this lab may
+      # not, so this rule is here to show the SHAPE and the naming convention.
+      - name: http.rules
+        interval: 15s
+        rules:
+          - record: job:http_requests:rate5m
+            expr: sum(rate(http_requests_total[5m])) by (job)
+            #      └ level ┘ └── metric ──┘ └op┘
+            # level:metric:operation -> "per-job 5m rate of http_requests_total"
+
+      # ── Rules that actually FIRE in this lab (Prometheus self-scrape), so you
+      #    can watch the new series appear in the UI. Same naming convention. ──
+      - name: lab.rules
+        interval: 15s
+        rules:
+          # popular query: per-job request rate of Prometheus' own API
+          - record: job:prometheus_http_requests:rate5m
+            expr: sum(rate(prometheus_http_requests_total[5m])) by (job)
+
+          # heavy aggregation worth materialising: active series per instance
+          - record: instance:prometheus_tsdb_head_series:sum
+            expr: sum(prometheus_tsdb_head_series) by (instance)
+
+          # cheap 0/1 series an alert can read on a tight interval
+          - record: job:up:ratio
+            expr: avg(up) by (job)
+
+  # ── The tiered-storage pattern (record the rollup, THEN drop the raw) ────────
+  # A recording rule alone makes queries cheaper, not storage. To shrink storage
+  # too: keep the rolled-up series above, and drop the raw high-cardinality one
+  # underneath it at scrape time. Uncomment on the job that produces the raw
+  # metric once its rollup rule exists — you keep the summary you query and stop
+  # paying for the detail you don't.
+  #
+  # prometheus.yml:
+  #   scrape_configs:
+  #     - job_name: my-app
+  #       metric_relabel_configs:
+  #         - source_labels: [__name__]
+  #           regex: http_requests_total          # the raw series, now rolled up
+  #           action: drop
