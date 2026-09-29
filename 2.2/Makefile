@@ -41,10 +41,13 @@ verify: ## LogQL drills + the two absence assertions
 	 PF=$$!; sleep 4; ./verify.sh http://localhost:3100; RC=$$?; kill $$PF 2>/dev/null; exit $$RC
 
 ui: ## print the Grafana URL (admin/admin) — Explore -> Loki to run LogQL
-	@IP=$$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null); \
+	@TOKEN=$$(curl -s -m 1 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null); \
+	 IP=$$(curl -s -m 1 -H "X-aws-ec2-metadata-token: $$TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null); \
+	 [ -z "$$IP" ] && IP=$$(curl -s -m 1 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null); \
+	 [ -z "$$IP" ] && IP=$$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null); \
 	 [ -z "$$IP" ] && IP=$$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null); \
 	 echo "Grafana: http://$$IP:31300   (admin / admin)"; \
-	 echo "  or:    kubectl -n $(NS) port-forward svc/grafana 13000:80  ->  http://localhost:13000"; \
+	 echo "  if that IP isn't reachable:  kubectl -n $(NS) port-forward svc/grafana 13000:80  ->  http://localhost:13000"; \
 	 echo "  then Explore -> Loki datasource -> run LogQL from 2.2.5-2.2.7"
 
 logql: ## port-forward Loki so you can run LogQL (curl or a Grafana Loki datasource)
