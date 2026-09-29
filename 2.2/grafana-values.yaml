@@ -1,0 +1,28 @@
+# 2.2 — Grafana with the Loki datasource provisioned as code.
+#
+# grafana-community/grafana chart (grafana/grafana is deprecated, frozen at v12).
+# Nothing is clicked: the Loki datasource is wired from this file, pointing at
+# the loki-gateway service this lab deploys. Open Grafana -> Explore -> Loki and
+# run the same LogQL from 2.2.5-2.2.7 that verify.sh runs on the API.
+
+service:
+  type: NodePort
+  nodePort: 31300                # kind maps host :13000 -> this nodePort
+
+adminUser: admin
+adminPassword: admin             # lab only
+
+persistence:
+  enabled: false
+
+# --- Loki datasource, provisioned with a stable UID ---
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki-gateway.monitoring.svc     # the gateway this lab installs
+        isDefault: true

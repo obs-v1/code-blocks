@@ -19,6 +19,7 @@ the success condition.
 |------|---------|
 | `loki-values.yaml` | single-binary Loki store (filesystem, no auth) |
 | `promtail-values.yaml` | the shipper — **the four pipeline stages are the lesson** |
+| `grafana-values.yaml` | Grafana with the **Loki datasource provisioned as code** |
 | `leaky-app.yaml` | a demo app that logs a healthcheck **and** a password on a loop |
 | `verify.sh` / `Makefile` | drills + the two absence assertions |
 
@@ -40,10 +41,15 @@ pipeline_stages:
 ## Run
 
 ```bash
-make setup      # Loki + Promtail + the leaky demo (Prometheus/fleet already running)
+make setup      # Loki + Promtail + Grafana + the leaky demo (fleet already running)
 # give logs ~30s to land
 make verify     # LogQL drills + the two assertions
+make ui         # print the Grafana URL to explore the logs visually
 ```
+
+`make setup` also installs **Grafana** (`grafana-community/grafana` chart) with the
+**Loki datasource already wired** (`grafana-values.yaml`) — nothing to click. Open
+it and go **Explore → Loki** to run the LogQL below by hand.
 
 ## Verify
 
@@ -63,11 +69,18 @@ there — just with the secret removed. That is redaction working as a *second l
 
 ## Explore LogQL by hand
 
+**In Grafana (recommended):** `make ui` → open `http://<node>:31300` (admin / admin)
+→ **Explore** → **Loki** → run, e.g. (cheapest filters first — 2.2.5):
+
+```logql
+{service="upi-service"} |= "COMPLETED" | json | amount > 10000
+sum(rate({namespace="bankobs", level="ERROR"}[5m]))     # a metric from logs (2.2.7)
+```
+
+**Or against the raw API:**
+
 ```bash
 make logql      # port-forwards Loki to http://localhost:3100
-# then, e.g. (cheapest filters first — 2.2.5):
-#   {service="upi-service"} |= "COMPLETED" | json | amount > 10000
-#   sum(rate({namespace="bankobs", level="ERROR"}[5m]))     # a metric from logs (2.2.7)
 ```
 
 ## Tear down
