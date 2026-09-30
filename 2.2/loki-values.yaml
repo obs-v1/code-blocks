@@ -1,63 +1,89 @@
 # 2.2.10 lab — Loki single-binary store (filesystem, no auth) for the class.
 # Not a production topology; just enough Loki to receive Promtail's stream and
-# answer LogQL. Exposed on a NodePort so LogQL can be run from outside the box.
+# answer LogQL. Every knob below is annotated with WHAT it does and what would
+# change in production (see the "Running Loki in production" notes / 2.2.11).
+
+# ── Deployment mode ──────────────────────────────────────────────────────────
+# Loki ships in three shapes, all from this one chart:
+#   SingleBinary  — every component in one process (this lab; simplest)
+#   SimpleScalable — split into read / write / backend pods (the prod default)
+#   Distributed   — every microservice separate (very large scale)
+# We use SingleBinary because the lesson is LogQL and the pipeline, not topology.
 deploymentMode: SingleBinary
 
+# ── Core Loki config (rendered into Loki's own config.yaml) ──────────────────
 loki:
-  auth_enabled: false                 # single-tenant lab
+  auth_enabled: false                 # multi-tenancy OFF: no X-Scope-OrgID needed.
+                                      # Prod: true, so each team/tenant is isolated.
   commonConfig:
-    replication_factor: 1
+    replication_factor: 1             # keep 1 copy of each chunk (single ingester).
+                                      # Prod: 3, so an ingester crash loses no data.
   storage:
-    type: filesystem
+    type: filesystem                  # chunks + index on local disk.
+                                      # Prod: object store (S3/GCS/Azure) for durability & scale.
+
+  # schemaConfig tells Loki HOW to store data from a given date forward. You add
+  # a NEW entry (never edit an old one) when you change index/store — old data
+  # keeps its old schema, new data uses the new one. That's how migrations stay safe.
   schemaConfig:
     configs:
-      - from: "2024-01-01"
-        store: tsdb
-        object_store: filesystem
-        schema: v13
-        index: { prefix: index_, period: 24h }
-  limits_config:
-    retention_period: 72h
-    allow_structured_metadata: true
-  # keep the demo tiny
-  rulerConfig: {}
+      - from: "2024-01-01"            # this schema applies to data from this date on
+        store: tsdb                   # the modern index type (replaces boltdb-shipper)
+        object_store: filesystem      # where chunks live (matches storage.type above)
+        schema: v13                   # current index schema version
+        index: { prefix: index_, period: 24h }   # one index table per 24h
 
+  # limits_config is Loki's overload protection. The lab sets only two; in prod
+  # this is where ingestion-rate / per-stream / max-streams caps live (2.2.11).
+  limits_config:
+    retention_period: 72h             # delete logs older than 3 days (lab).
+                                      # Prod: set per-stream via the compactor (2.2.4).
+    allow_structured_metadata: true   # permit high-cardinality fields (trace_id) as
+                                      # structured metadata instead of labels (Loki 3.x).
+
+  rulerConfig: {}                     # no log-based alerting rules in this lab (see the ruler in 2.2.11)
+
+# ── SingleBinary runtime ─────────────────────────────────────────────────────
 singleBinary:
-  replicas: 1
+  replicas: 1                         # one Loki pod. Prod SimpleScalable: 2-3 each of read/write.
   persistence:
     enabled: true
-    size: 5Gi                          # writable /var/loki (local-path SC)
+    size: 5Gi                         # a PVC for writable /var/loki (local-path StorageClass)
 
-# turn OFF every microservices-mode component (single binary handles all)
-backend:      { replicas: 0 }
-read:         { replicas: 0 }
-write:        { replicas: 0 }
-ingester:     { replicas: 0 }
-querier:      { replicas: 0 }
-queryFrontend:{ replicas: 0 }
-queryScheduler:{ replicas: 0 }
-distributor:  { replicas: 0 }
-compactor:    { replicas: 0 }
-indexGateway: { replicas: 0 }
-bloomPlanner: { replicas: 0 }
-bloomBuilder: { replicas: 0 }
-bloomGateway: { replicas: 0 }
+# ── Every OTHER deployment mode's components are turned OFF ──────────────────
+# These only matter in SimpleScalable/Distributed mode. At replicas: 0 they don't
+# run — SingleBinary already does all their jobs inside the one process. Shown
+# explicitly so you can SEE the parts a scaled Loki splits into.
+backend:      { replicas: 0 }         # ruler + compactor + index-gateway (SimpleScalable)
+read:         { replicas: 0 }         # queriers + query-frontend
+write:        { replicas: 0 }         # distributors + ingesters
+ingester:     { replicas: 0 }         # (Distributed) receives & batches, flushes chunks
+querier:      { replicas: 0 }         # (Distributed) runs queries over ingesters + store
+queryFrontend: { replicas: 0 }        # (Distributed) splits/queues/caches queries
+queryScheduler: { replicas: 0 }       # (Distributed) schedules query work to queriers
+distributor:  { replicas: 0 }         # (Distributed) receives & validates writes
+compactor:    { replicas: 0 }         # (Distributed) compacts index + enforces retention
+indexGateway: { replicas: 0 }         # (Distributed) serves the index to queriers
+bloomPlanner: { replicas: 0 }         # (Distributed) bloom-filter build planning (3.x accel)
+bloomBuilder: { replicas: 0 }         # (Distributed) builds bloom filters
+bloomGateway: { replicas: 0 }         # (Distributed) serves bloom filters at query time
 
-# expose the Loki HTTP API on the kind host-port mapping (host :9090 -> 30990 is
-# taken by Prometheus; we use the gateway on a fresh NodePort via port-forward in
-# the Makefile instead of a host mapping, so ClusterIP is fine here)
+# ── Gateway: an nginx that fronts Loki and routes /push and /query to the right
+#    component. It is the single URL clients (Promtail, Grafana) talk to. ──
 gateway:
   enabled: true
   service:
-    type: ClusterIP
+    type: ClusterIP                   # reached via `kubectl port-forward` (the Makefile does this).
+                                      # host :9090 -> NodePort 30990 is already taken by Prometheus.
 
+# ── Extras disabled to keep the lab tiny ────────────────────────────────────
 chunksCache:
-  enabled: false
+  enabled: false                      # memcached for chunks. Prod: ENABLE — biggest query-speed lever.
 resultsCache:
-  enabled: false
+  enabled: false                      # memcached for query results. Prod: enable.
 lokiCanary:
-  enabled: false
+  enabled: false                      # a synthetic write/read probe that measures loss & latency
 test:
-  enabled: false
+  enabled: false                      # the chart's post-install test pod
 monitoring:
-  selfMonitoring: { enabled: false, grafanaAgent: { installOperator: false } }
+  selfMonitoring: { enabled: false, grafanaAgent: { installOperator: false } }  # don't pull in an agent operator

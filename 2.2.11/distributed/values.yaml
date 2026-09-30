@@ -1,0 +1,58 @@
+# Distributed (microservices) — EVERY Loki component is its own deployment:
+# distributor, ingester, querier, query-frontend, query-scheduler, compactor,
+# index-gateway. Only worth it at very large scale; here it's one replica each so
+# you can see the parts. Needs shared object storage — bundled MinIO for the lab.
+deploymentMode: Distributed
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1                 # lab; prod: 3 (and ingester replicas >= RF)
+  storage:
+    type: s3
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: { prefix: index_, period: 24h }
+  limits_config:
+    retention_period: 72h
+    allow_structured_metadata: true
+
+minio:
+  enabled: true
+
+# the microservices, one replica each (the whole point: see them split out)
+distributor:   { replicas: 1 }
+ingester:      { replicas: 1 }
+querier:       { replicas: 1 }
+queryFrontend: { replicas: 1 }
+queryScheduler:{ replicas: 1 }
+compactor:     { replicas: 1 }
+indexGateway:  { replicas: 1 }
+
+# other modes OFF
+singleBinary: { replicas: 0 }
+write:        { replicas: 0 }
+read:         { replicas: 0 }
+backend:      { replicas: 0 }
+# bloom-filter accel (3.x) off for the lab
+bloomPlanner: { replicas: 0 }
+bloomBuilder: { replicas: 0 }
+bloomGateway: { replicas: 0 }
+ruler:        { replicas: 0 }
+
+gateway:
+  enabled: true
+  service: { type: ClusterIP }
+
+chunksCache:  { enabled: false }
+resultsCache: { enabled: false }
+lokiCanary:   { enabled: false }
+test:         { enabled: false }

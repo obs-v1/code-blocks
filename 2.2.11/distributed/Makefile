@@ -1,0 +1,24 @@
+# Loki — Distributed (microservices) mode.  `make` deploys everything (all
+# components + bundled MinIO), `make clean` uninstalls.
+NS      ?= loki-distributed
+RELEASE ?= loki
+
+.DEFAULT_GOAL := deploy
+.PHONY: deploy repo status clean
+
+deploy: repo ## install Loki (Distributed: every component + MinIO)
+	helm upgrade -i $(RELEASE) grafana/loki -n $(NS) --create-namespace -f values.yaml
+	@sleep 5
+	-kubectl -n $(NS) wait --for=condition=ready pod --all --timeout=600s
+	@$(MAKE) -s status
+
+repo: ## add/update the grafana helm repo
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update grafana
+
+status: ## show the pods (each component is its own deployment)
+	@kubectl -n $(NS) get pods
+
+clean: ## uninstall the release and remove the namespace
+	-helm -n $(NS) uninstall $(RELEASE)
+	-kubectl delete ns $(NS) --ignore-not-found

@@ -1,0 +1,57 @@
+# SimpleScalable — Loki split into THREE roles: write (distributor + ingester),
+# read (querier + query-frontend), backend (compactor, ruler, index-gateway).
+# The production default for most shops. Needs SHARED object storage so the three
+# roles see the same chunks — we enable the chart's bundled MinIO for the lab.
+deploymentMode: SimpleScalable
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1                 # lab; prod: 3
+  storage:
+    type: s3                              # object storage (the bundled MinIO below)
+    bucketNames:
+      chunks: chunks
+      ruler: ruler
+      admin: admin
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: { prefix: index_, period: 24h }
+  limits_config:
+    retention_period: 72h
+    allow_structured_metadata: true
+
+# bundled object store so write/read/backend share one bucket (lab only)
+minio:
+  enabled: true
+
+# the three roles (lab-sized; scale these in production)
+write:   { replicas: 2 }
+read:    { replicas: 2 }
+backend: { replicas: 2 }
+
+# other modes' components OFF
+singleBinary:  { replicas: 0 }
+ingester:      { replicas: 0 }
+querier:       { replicas: 0 }
+queryFrontend: { replicas: 0 }
+queryScheduler:{ replicas: 0 }
+distributor:   { replicas: 0 }
+compactor:     { replicas: 0 }
+indexGateway:  { replicas: 0 }
+bloomPlanner:  { replicas: 0 }
+bloomBuilder:  { replicas: 0 }
+bloomGateway:  { replicas: 0 }
+
+gateway:
+  enabled: true
+  service: { type: ClusterIP }
+
+chunksCache:  { enabled: false }
+resultsCache: { enabled: false }
+lokiCanary:   { enabled: false }
+test:         { enabled: false }

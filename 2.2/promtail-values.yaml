@@ -1,62 +1,90 @@
-# 2.2.10 lab — Promtail: discover bankobs pods, run the four pipeline stages
-# (parse, promote, timestamp, drop), and ship to Loki. The two teaching stages
-# the lab asserts on are DROP (health-checks) and REPLACE (scrub a password).
+# 2.2.10 lab — Promtail values, fully annotated.
+#
+# The grafana/promtail chart installs Promtail as a DaemonSet: one pod per node
+# that reads every container's log files off that node's disk (/var/log/pods).
+# Two halves do the work, and it's worth keeping them straight:
+#   relabel_configs  — run BEFORE scraping: pick which targets to tail and set
+#                      labels FROM Kubernetes metadata (namespace, pod, ...).
+#   pipeline_stages  — run PER LOG LINE after scraping: parse, drop, scrub,
+#                      timestamp, and promote fields to labels.
 config:
+  # WHERE to ship. The single Loki URL (the gateway from loki-values.yaml).
+  # /loki/api/v1/push is Loki's write endpoint.
   clients:
     - url: http://loki-gateway.monitoring.svc/loki/api/v1/push
 
+  # `snippets.scrapeConfigs` REPLACES the chart's default scrape config with ours,
+  # so the discovery + pipeline below is exactly what runs (nothing hidden).
   snippets:
-    # Only scrape the bankobs fleet + our planted leaky demo pod.
     scrapeConfigs: |
       - job_name: bankobs
+        # ── DISCOVERY ── ask the Kubernetes API for all Pods; each becomes a
+        #    target. __meta_kubernetes_* labels are attached for relabeling below.
         kubernetes_sd_configs:
           - role: pod
+        # ── PER-LINE PROCESSING ── the four pipeline stages (2.2.9). Each line
+        #    flows top-to-bottom through these.
         pipeline_stages:
-          # 1) PARSE — the runtime wraps each line; unwrap the container format,
-          #    then parse our app JSON so later stages have fields to work with.
+          # 1) PARSE — the container runtime wraps each stdout line as
+          #    "<ts> <stream> <flags> <content>"; `cri` unwraps that to the raw
+          #    content, then `json` extracts fields from our app's JSON line so
+          #    later stages (and labels) have data to work with.
           - cri: {}
           - json:
-              expressions:
+              expressions:            # loki_field: json_field
                 level: level
                 service: service
                 event: event
                 ts: timestamp
                 msg: message
           # 2) DROP — health/probe noise never reaches the store (2.1.9 net).
+          #    The regex matches the whole line; matching lines are discarded.
           #    Applied fleet-wide: a healthcheck is noise in every namespace.
           - drop:
               expression: ".*(/health|/healthz|/actuator/health|healthcheck|readiness|liveness).*"
-              drop_counter_reason: "healthcheck"
-          # 3) SCRUB — second-layer redaction: mask any leaked password/token/PAN.
+              drop_counter_reason: "healthcheck"   # shows up in promtail_dropped_entries_total{reason=...}
+          # 3) SCRUB — second-layer redaction: mask any leaked password/token/PAN
+          #    BEFORE the line is stored. $1 keeps the key, the value is replaced.
           - replace:
               expression: '(?i)(password|passwd|pwd|token|secret)["\s:=]+([^\s",}]+)'
               replace: '${1}=***REDACTED***'
           - replace:
-              expression: '\b(\d{13,19})\b'
+              expression: '\b(\d{13,19})\b'          # a 13-19 digit run = a card number (PAN)
               replace: '***PAN-REDACTED***'
-          # 4) TIMESTAMP — trust the app's clock, not ingestion time.
+          # 4) TIMESTAMP — set the entry time from the app's own `timestamp`
+          #    field, not when Promtail read it. `fudge` = if parsing fails, use
+          #    the last good time +1ns instead of dropping the line.
           - timestamp:
-              source: ts
+              source: ts                # the field captured as `ts` in the json stage
               format: RFC3339Nano
               action_on_failure: fudge
-          # PROMOTE — only enumerable fields become index labels. NEVER trace_id.
+          # PROMOTE — turn extracted fields into Loki index LABELS. ONLY low-
+          # cardinality, enumerable ones (2.2.3). Empty value = "use the field of
+          # the same name". NEVER promote request_id/trace_id — one stream/request.
           - labels:
               level:
               service:
+        # ── RELABELING (discovery-time) ── shapes the target set and the labels
+        #    that come from Kubernetes, using the __meta_kubernetes_* metadata.
         relabel_configs:
-          # keep only the bankobs namespace + the planted leaky demo
+          # keep ONLY pods in these namespaces; every other target is dropped.
+          # This is why Promtail ships bankobs + demo, not the whole cluster.
           - source_labels: [__meta_kubernetes_namespace]
             regex: "bankobs|demo"
             action: keep
+          # copy useful k8s metadata into stable labels on every stream
           - source_labels: [__meta_kubernetes_namespace]
             target_label: namespace
-          - source_labels: [__meta_kubernetes_pod_label_app]
+          - source_labels: [__meta_kubernetes_pod_label_app]   # the pod's `app` label
             target_label: app
           - source_labels: [__meta_kubernetes_pod_name]
             target_label: pod
           - source_labels: [__meta_kubernetes_pod_container_name]
             target_label: container
-          # THE PATH: point Promtail at the container's log files on the node
+          # THE PATH — build the on-disk log path from the pod UID + container
+          # name and put it in __path__, the special label that tells Promtail
+          # which files to tail. This is the node-level read: the kubelet writes
+          # each container's stdout to /var/log/pods/<ns>_<pod>_<uid>/<container>/*.log
           - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
             separator: "/"
             replacement: "/var/log/pods/*$1/*.log"
