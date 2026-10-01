@@ -40,6 +40,10 @@ actual object storage instead.
 - Replica counts are lab-sized (1-2). Production scales `write`/`read`/`backend`
   (SimpleScalable) or the individual microservices (Distributed), and sets
   `replication_factor: 3`.
-- Reach the API with `kubectl -n <ns> port-forward svc/loki-gateway 3100:80`.
+- Each mode uses a **unique release name** (`loki-single` / `loki-scalable` /
+  `loki-distributed`) — the Loki chart's `ClusterRole` is release-named and
+  cluster-scoped, so two releases called `loki` collide. Reach the API with
+  `kubectl -n <ns> port-forward svc/<release>-gateway 3100:80`
+  (e.g. `svc/loki-scalable-gateway`).
 - Distributed brings up the most pods — give a small box a minute, and watch
   with `kubectl -n loki-distributed get pods -w`.

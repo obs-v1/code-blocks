@@ -1,7 +1,7 @@
 # Loki — SimpleScalable mode.  `make` deploys everything (incl. bundled MinIO),
 # `make clean` uninstalls.
 NS      ?= loki-scalable
-RELEASE ?= loki
+RELEASE ?= loki-scalable    # unique per mode: the chart's ClusterRole is release-named, so two "loki" releases collide
 
 .DEFAULT_GOAL := deploy
 .PHONY: deploy repo status clean
