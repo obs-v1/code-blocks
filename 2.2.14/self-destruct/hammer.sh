@@ -30,6 +30,15 @@ round() {
 }
 export -f round; export LOKI STREAMS base pad
 
+# Loki accepts pushes a few seconds AFTER the pod reports ready — wait for a
+# probe push to return 204 so the flood isn't counted as all-failed on a cold start.
+for _w in $(seq 1 30); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 -H 'Content-Type: application/json' \
+      "$LOKI/loki/api/v1/push" \
+      --data-binary "{\"streams\":[{\"stream\":{\"app\":\"_probe\"},\"values\":[[\"$base\",\"ready\"]]}]}" 2>/dev/null || echo 000)" = "204" ] && break
+  sleep 2
+done
+
 echo "hammering: $ROUNDS rounds x $STREAMS new streams x ${LINEKB}KB lines, $PAR in parallel ..."
 codes=$(seq 1 "$ROUNDS" | xargs -P "$PAR" -I{} bash -c 'round "$@"' _ {})
 ok=$(grep -c '^20[04]$' <<<"$codes"); rej=$(grep -c '^429$' <<<"$codes")

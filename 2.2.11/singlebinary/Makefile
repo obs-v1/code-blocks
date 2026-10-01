@@ -1,6 +1,7 @@
 # Loki — SingleBinary mode.  `make` deploys everything, `make clean` uninstalls.
 NS      ?= loki-single
-RELEASE ?= loki-single    # unique per mode: the chart's ClusterRole is release-named, so two "loki" releases collide
+# unique release name per lab - unique per mode: the chart's ClusterRole is release-named, so two "loki" releases collide
+RELEASE ?= loki-single
 
 .DEFAULT_GOAL := deploy
 .PHONY: deploy repo status clean

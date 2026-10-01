@@ -1,7 +1,8 @@
 # 2.2.13 — replication.  `make` deploys Loki (3 ingesters, RF=3) AND proves that
 # killing an ingester loses no data.  `make clean` uninstalls.
 NS      ?= loki-replication
-RELEASE ?= loki-replication    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+# unique release name per lab - unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+RELEASE ?= loki-replication
 
 .DEFAULT_GOAL := demo
 .PHONY: demo deploy repo verify clean

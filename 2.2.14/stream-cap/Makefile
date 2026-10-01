@@ -3,7 +3,8 @@
 #   FIX      set the limits     -> the same flood is capped with HTTP 429
 # `make clean` uninstalls.
 NS      ?= loki-limits
-RELEASE ?= loki-limits    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+# unique release name per lab - unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+RELEASE ?= loki-limits
 N       ?= 200
 
 .DEFAULT_GOAL := demo
@@ -14,14 +15,16 @@ demo: problem solve ## show the flood swallowed (problem), then capped (fix)
 problem: repo ## limits wide open -> the flood is swallowed
 	helm upgrade -i $(RELEASE) grafana/loki -n $(NS) --create-namespace -f values-loose.yaml
 	kubectl -n $(NS) rollout status statefulset/$(RELEASE) --timeout=300s
+	kubectl -n $(NS) rollout status deploy/$(RELEASE)-gateway --timeout=180s
 	@echo ""; echo ">>> PROBLEM — limits wide open (max_global_streams_per_user: 100000)"
 	@kubectl -n $(NS) port-forward svc/$(RELEASE)-gateway 3100:80 >/dev/null 2>&1 & \
 	 PF=$$!; sleep 4; ./flood.sh http://localhost:3100 $(N) a; kill $$PF 2>/dev/null
 
 solve: repo ## set the limits + restart -> the flood is capped (429)
-	helm upgrade -i $(RELEASE) grafana/loki -n $(NS) --create-namespace -f values-tight.yaml
+	helm upgrade -i $(RELEASE) grafana/loki -n $(NS) --create-namespace --reset-values -f values-tight.yaml
 	kubectl -n $(NS) rollout restart statefulset/$(RELEASE)
 	kubectl -n $(NS) rollout status statefulset/$(RELEASE) --timeout=300s
+	kubectl -n $(NS) rollout status deploy/$(RELEASE)-gateway --timeout=180s
 	@echo ""; echo ">>> FIX — max_global_streams_per_user: 50"
 	@kubectl -n $(NS) port-forward svc/$(RELEASE)-gateway 3100:80 >/dev/null 2>&1 & \
 	 PF=$$!; sleep 4; ./flood.sh http://localhost:3100 $(N) b; kill $$PF 2>/dev/null

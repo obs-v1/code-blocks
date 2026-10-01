@@ -8,7 +8,8 @@
 # Fully isolated in namespace `sidecar-demo` + its own Loki release — it does
 # NOT disturb the 2.2 lab (Loki/Promtail in `monitoring`, app in `demo`).
 NS      ?= sidecar-demo
-RELEASE ?= loki-sidecar    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+# unique release name per lab - unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
+RELEASE ?= loki-sidecar
 
 .DEFAULT_GOAL := setup
 .PHONY: setup repo loki app verify logql destroy

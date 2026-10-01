@@ -1,7 +1,8 @@
 # Loki — Distributed (microservices) mode.  `make` deploys everything (all
 # components + bundled MinIO), `make clean` uninstalls.
 NS      ?= loki-distributed
-RELEASE ?= loki-distributed    # unique per mode: the chart's ClusterRole is release-named, so two "loki" releases collide
+# unique release name per lab - unique per mode: the chart's ClusterRole is release-named, so two "loki" releases collide
+RELEASE ?= loki-distributed
 
 .DEFAULT_GOAL := deploy
 .PHONY: deploy repo status clean
