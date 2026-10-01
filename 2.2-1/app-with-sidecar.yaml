@@ -28,7 +28,7 @@ data:
     positions:
       filename: /run/promtail/positions.yaml
     clients:
-      - url: http://loki-gateway.sidecar-demo.svc/loki/api/v1/push
+      - url: http://loki-sidecar-gateway.sidecar-demo.svc/loki/api/v1/push
     scrape_configs:
       - job_name: app
         static_configs:

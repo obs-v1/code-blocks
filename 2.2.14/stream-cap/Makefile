@@ -3,7 +3,7 @@
 #   FIX      set the limits     -> the same flood is capped with HTTP 429
 # `make clean` uninstalls.
 NS      ?= loki-limits
-RELEASE ?= loki
+RELEASE ?= loki-limits    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
 N       ?= 200
 
 .DEFAULT_GOAL := demo

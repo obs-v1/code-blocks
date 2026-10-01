@@ -1,7 +1,7 @@
 # 2.2.13 — multi-tenancy.  `make` deploys Loki (auth on) AND proves tenant
 # isolation.  `make clean` uninstalls.
 NS      ?= loki-tenancy
-RELEASE ?= loki
+RELEASE ?= loki-tenancy    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
 
 .DEFAULT_GOAL := demo
 .PHONY: demo deploy repo verify clean

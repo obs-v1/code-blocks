@@ -3,7 +3,7 @@
 #   FIX      limits ON  + same ceiling          -> the flood is rejected, Loki lives
 # `make clean` uninstalls. Tune ROUNDS/STREAMS/MEM to your node (see README).
 NS      ?= loki-oom
-RELEASE ?= loki
+RELEASE ?= loki-oom    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
 ROUNDS  ?= 80
 STREAMS ?= 500
 
