@@ -1,24 +1,23 @@
 # 2.2.19 — metrics → logs drilldown on the bankobs fleet.
-#   make        deploy Prometheus + Grafana + Loki + Promtail, then inject errors
+#   make        deploy Prometheus + Grafana + Loki + Promtail, then break a dependency
 #   make stack  just the observability stack (no fault)
-#   make fault  bring the injector up and fire an error burst at payment-gateway
-#   make reset  heal all faults
+#   make fault  stop a dependency so its CALLERS error (metrics) and log why (Loki)
+#   make reset  heal the fault (revert) and park the injector
 #   make ui     print the Grafana URL
-#   make clean  uninstall everything
+#   make clean  uninstall the stack (bankobs is left alone)
 #
-# Assumes the cluster is ALREADY running bankobs + the (dormant) fault-injector.
-# The fault/load steps reuse the bankobs repo's own tooling — point BANKOBS_DIR
-# at it (default below). Override FAULT_SVC/CODE/PCT to fault something else.
-NS          ?= monitoring
-BANKOBS_DIR ?= $(HOME)/claude/observability/bankobserve360
-FAULT_SVC   ?= payment-gateway
-FAULT_CODE  ?= 503
-FAULT_PCT   ?= 30
+# Assumes the cluster is ALREADY running bankobs + the (dormant) fault-injector
+# Deployment/Service. The fault is driven straight through the injector's REST
+# API (no bankobs repo needed on the box).
+NS        ?= monitoring
+BANKOBS   ?= bankobs
+FAULT_SVC ?= account-service    # a dependency many services call; stopping it makes callers fail+log
+FAULT_DUR ?= 300                # auto-reverts after this many seconds (safety TTL)
 
 .DEFAULT_GOAL := demo
-.PHONY: demo stack repo prometheus loki promtail grafana dashboards fault reset load ui clean
+.PHONY: demo stack repo prometheus loki promtail grafana dashboards fault reset ui clean
 
-demo: stack fault ## deploy the stack, then inject errors to diagnose
+demo: stack fault ## deploy the stack, then break a dependency to diagnose
 
 stack: repo prometheus loki promtail dashboards grafana ## the observability stack only
 
@@ -49,25 +48,27 @@ grafana: ## Grafana with Prometheus + Loki datasources + the dashboard
 	kubectl -n $(NS) rollout status deploy/grafana --timeout=180s
 	@$(MAKE) -s ui
 
-fault: ## bring up the injector and fire an error burst (reuses bankobs tooling)
-	@if [ ! -d "$(BANKOBS_DIR)" ]; then \
-	  echo "BANKOBS_DIR not found ($(BANKOBS_DIR))."; \
-	  echo "Run the fault from your bankobs repo instead:"; \
-	  echo "  make eks-fault-up && make eks-fault-forward &"; \
-	  echo "  make fault-error S=$(FAULT_SVC) CODE=$(FAULT_CODE) PCT=$(FAULT_PCT)"; \
-	  exit 1; fi
-	$(MAKE) -C "$(BANKOBS_DIR)" eks-fault-up
-	@echo "port-forwarding the injector API (:8091) in the background..."
-	@kubectl -n bankobs port-forward svc/fault-injector 8091:8091 >/dev/null 2>&1 & echo $$! > /tmp/2219-faultpf.pid; sleep 5
-	$(MAKE) -C "$(BANKOBS_DIR)" fault-error S=$(FAULT_SVC) CODE=$(FAULT_CODE) PCT=$(FAULT_PCT)
-	@echo ""; echo "errors injected at $(FAULT_SVC). Watch Grafana -> 'Errors: metric -> log', then read {service=\"$(FAULT_SVC)\"} in the logs panel."
+fault: ## stop $(FAULT_SVC) for $(FAULT_DUR)s; its callers error + log the reason
+	kubectl -n $(BANKOBS) scale deploy/fault-injector --replicas=1
+	kubectl -n $(BANKOBS) rollout status deploy/fault-injector --timeout=120s
+	@kubectl -n $(BANKOBS) port-forward svc/fault-injector 8091:8091 >/dev/null 2>&1 & echo $$! >/tmp/2219-fpf.pid; sleep 5; \
+	 curl -s -X POST http://localhost:8091/api/v1/faults -H 'Content-Type: application/json' \
+	   -d '{"type":"container_stop","duration_seconds":$(FAULT_DUR),"target":{"service":"$(FAULT_SVC)"}}' \
+	   | jq -r '"injected fault: " + (.data.id // .error // "?")'; \
+	 kill $$(cat /tmp/2219-fpf.pid) 2>/dev/null; rm -f /tmp/2219-fpf.pid
+	@echo ""
+	@echo ">>> $(FAULT_SVC) is down. In Grafana 'Errors: metric -> log':"
+	@echo "    top row  — 5xx spikes on its CALLERS (gateway-service, payment-gateway, upi-service)"
+	@echo "    log panel — read {service=\"upi-service\"} |= \"payment-failed\": fail_reason names $(FAULT_SVC)"
+	@echo "    heal with: make reset"
 
-reset: ## heal all faults
-	-$(MAKE) -C "$(BANKOBS_DIR)" fault-reset
-	-kill $$(cat /tmp/2219-faultpf.pid 2>/dev/null) 2>/dev/null || true
-
-load: ## (optional) drive traffic, if the loadrunner isn't already running
-	-$(MAKE) -C "$(BANKOBS_DIR)" load
+reset: ## revert all faults and park the injector
+	@kubectl -n $(BANKOBS) scale deploy/fault-injector --replicas=1 >/dev/null 2>&1; \
+	 kubectl -n $(BANKOBS) rollout status deploy/fault-injector --timeout=60s >/dev/null 2>&1 || true; \
+	 kubectl -n $(BANKOBS) port-forward svc/fault-injector 8091:8091 >/dev/null 2>&1 & P=$$!; sleep 4; \
+	 curl -s -X DELETE http://localhost:8091/api/v1/faults | jq -r '"reverted: " + (.data.reverted|tostring) 2>/dev/null' 2>/dev/null || true; \
+	 kill $$P 2>/dev/null
+	-kubectl -n $(BANKOBS) scale deploy/fault-injector --replicas=0
 
 ui: ## print the Grafana URL (admin/admin)
 	@TOKEN=$$(curl -s -m 1 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" 2>/dev/null); \
