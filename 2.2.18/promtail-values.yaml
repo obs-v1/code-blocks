@@ -1,0 +1,86 @@
+# 2.2.18 — a FULL per-pod parser for the whole bankobs fleet.
+#
+# Every bankobs pod carries a `log_format: json|raw` label. We branch on it:
+#   {log_format="json"}  -> one JSON stage covers all 49 structured services.
+#   {log_format="raw"}   -> a parser PER FORMAT FAMILY (Spring, log4j, pipe,
+#                           CLF, …), keyed on the service, so each legacy format
+#                           gets the right regex instead of one generic guess
+#                           that mislabels half of them.
+# The promoted `level` label is what makes {namespace="bankobs", level="ERROR"}
+# work across structured AND unstructured services alike.
+config:
+  clients:
+    - url: http://loki-pipeline-gateway.logging.svc/loki/api/v1/push
+
+  snippets:
+    scrapeConfigs: |
+      - job_name: bankobs
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace]
+            regex: "bankobs"
+            action: keep
+          # the pod's log_format -> a stream label the pipeline branches on
+          - source_labels: [__meta_kubernetes_pod_label_log_format]
+            target_label: log_format
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: "/"
+            replacement: "/var/log/pods/*$1/*.log"
+            target_label: __path__
+        pipeline_stages:
+          - cri: {}                                  # unwrap the container log framing
+
+          # ── JSON branch: 49 services, one stage ──
+          - match:
+              selector: '{log_format="json"}'
+              stages:
+                - json:
+                    expressions:
+                      level: level
+                      service: service
+                      trace_id: trace_id
+                - labels:
+                    level:
+                    service:
+
+          # ── RAW branch: pick the parser by format family ──
+          - match:
+              selector: '{log_format="raw"}'
+              stages:
+                # Spring Boot console + log4j 1.x: "<date> <time> LEVEL ..."
+                # (branch, cheque, nach, cersai, cbs-adapter, weblogic-cbs-simulator)
+                - match:
+                    selector: '{app=~"branch-service|cheque-service|nach-service|cersai-adapter|cbs-adapter|weblogic-cbs-simulator"}'
+                    stages:
+                      - regex:
+                          expression: '^\S+\s+\S+\s+(?P<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b'
+                      - labels: { level: }
+
+                # pipe-delimited audit: "<ts>|LEVEL|service|event|detail"  (pci-logger)
+                - match:
+                    selector: '{app="pci-logger"}'
+                    stages:
+                      - regex:
+                          expression: '^[^|]*\|(?P<level>\w+)\|'
+                      - labels: { level: }
+
+                # CLF access log: no level — pull the HTTP status instead  (tomcat-loan-legacy)
+                - match:
+                    selector: '{app="tomcat-loan-legacy"}'
+                    stages:
+                      - regex:
+                          expression: '"\s(?P<status>\d{3})\s'
+                      - labels: { status: }
+
+                # the remainder (ibm-mq-bridge, sms-gateway, whatsapp-service,
+                # email-service) are genuinely unstructured — ship them as-is
+                # rather than stamp a wrong level. Add a regex here as needed.
