@@ -4,8 +4,9 @@
 # `make clean` uninstalls. Tune ROUNDS/STREAMS/MEM to your node (see README).
 NS      ?= loki-oom
 RELEASE ?= loki-oom    # unique: the chart's ClusterRole is release-named, so two "loki" releases collide across namespaces
-ROUNDS  ?= 80
+ROUNDS  ?= 300    # enough high-cardinality flood to OOM a 350Mi ingester (validated)
 STREAMS ?= 500
+PAR     ?= 10     # concurrent pushes — pile streams on fast enough to blow memory
 
 .DEFAULT_GOAL := demo
 .PHONY: demo problem solve repo podstate clean
@@ -17,7 +18,7 @@ problem: repo ## no limits + 350Mi -> flood OOMs Loki
 	kubectl -n $(NS) rollout status statefulset/$(RELEASE) --timeout=300s
 	@echo ""; echo ">>> PROBLEM — all limits OFF, memory capped at 350Mi. Hammering..."
 	@kubectl -n $(NS) port-forward svc/$(RELEASE)-gateway 3100:80 >/dev/null 2>&1 & \
-	 PF=$$!; sleep 4; ./hammer.sh http://localhost:3100 $(ROUNDS) $(STREAMS); kill $$PF 2>/dev/null
+	 PF=$$!; sleep 4; ./hammer.sh http://localhost:3100 $(ROUNDS) $(STREAMS) 2 $(PAR); kill $$PF 2>/dev/null
 	@sleep 6; $(MAKE) -s podstate
 
 solve: repo ## same flood, but limits ON -> Loki survives
@@ -26,7 +27,7 @@ solve: repo ## same flood, but limits ON -> Loki survives
 	kubectl -n $(NS) rollout status statefulset/$(RELEASE) --timeout=300s
 	@echo ""; echo ">>> FIX — limits ON, same 350Mi ceiling. Hammering the same flood..."
 	@kubectl -n $(NS) port-forward svc/$(RELEASE)-gateway 3100:80 >/dev/null 2>&1 & \
-	 PF=$$!; sleep 4; ./hammer.sh http://localhost:3100 $(ROUNDS) $(STREAMS); kill $$PF 2>/dev/null
+	 PF=$$!; sleep 4; ./hammer.sh http://localhost:3100 $(ROUNDS) $(STREAMS) 2 $(PAR); kill $$PF 2>/dev/null
 	@sleep 4; $(MAKE) -s podstate
 
 podstate: ## show the Loki pod: restarts + last-termination reason (OOMKilled?)
