@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Distributed Loki — preferred sizing for ~500,000 log lines / minute.
+#
+# The math:
+#   500,000 lines/min  ≈  8,300 lines/sec
+#   at ~0.5–1 KB/line   ≈  4–8 MB/s ingest  ≈  0.35–0.7 TB/day raw (before compression)
+#   replication_factor 3  → the write path moves ~3× that internally.
+#
+# This is a MODEST-to-MEDIUM load for Loki (it scales to millions/sec). The
+# numbers below are safe STARTING POINTS, not magic — tune them by watching:
+#   • ingesters:  loki_ingester_memory_streams, container memory, append failures
+#   • distributors: discarded/rate-limited samples
+#   • queriers:   query latency, query-scheduler queue length
+# Scale INGESTERS first if memory climbs; QUERIERS first if queries lag.
+# ─────────────────────────────────────────────────────────────────────────────
+deploymentMode: Distributed
+
+loki:
+  auth_enabled: true                      # real deployments are multi-tenant
+  commonConfig:
+    replication_factor: 3                 # 3 copies — survive an ingester loss (see 2.2.13)
+
+  # ── Durable object storage (NOT the bundled MinIO at this scale) ──
+  storage:
+    type: s3
+    bucketNames:
+      chunks: loki-chunks
+      ruler:  loki-ruler
+      admin:  loki-admin
+    s3:
+      region: us-east-1
+      endpoint: s3.us-east-1.amazonaws.com
+      s3ForcePathStyle: false
+      # In production use IRSA / a workload identity, or a Secret — never inline keys.
+      # accessKeyId: <from-secret>
+      # secretAccessKey: <from-secret>
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index: { prefix: loki_index_, period: 24h }
+
+  # ── Limits sized for this ingest (per tenant) ──
+  limits_config:
+    ingestion_rate_mb: 16                 # ~8 MB/s steady + headroom
+    ingestion_burst_size_mb: 32
+    per_stream_rate_limit: 8MB            # one busy stream's ceiling
+    per_stream_rate_limit_burst: 16MB
+    max_global_streams_per_user: 100000   # cardinality guard — set from your real stream count
+    max_entries_limit_per_query: 10000
+    max_query_parallelism: 32             # how many sub-queries the frontend shards into
+    max_query_series: 5000
+    retention_period: 744h                # 31 days — adjust per stream via the compactor
+    allow_structured_metadata: true
+    split_queries_by_interval: 15m        # chop big time ranges so queriers parallelise
+
+  # ── Ingester chunk tuning: fewer, fuller chunks = cheaper storage & queries ──
+  ingester:
+    chunk_target_size: 1572864            # ~1.5 MB target before flush
+    chunk_idle_period: 30m
+    max_chunk_age: 2h
+
+  querier:
+    max_concurrent: 8                     # sub-queries per querier pod
+
+# ── Component counts + resources (the actual "sizing") ───────────────────────
+# Stateless components scale horizontally; ingesters are memory-bound.
+distributor:
+  replicas: 3                             # stateless; validates + fans out writes
+  maxUnavailable: 1                        # PDB: keep the rest up during a rollout
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+
+ingester:
+  replicas: 6                             # ≥ replication_factor, +headroom for rolling restarts
+  maxUnavailable: 1                        # never drop below RF during a rollout
+  resources:
+    requests: { cpu: "1", memory: 4Gi }   # holds in-flight chunks in memory — give it room
+    limits:   { cpu: "2", memory: 8Gi }
+
+querier:
+  replicas: 3                             # scale with query load
+  maxUnavailable: 1
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits:   { cpu: "2", memory: 6Gi }
+
+queryFrontend:
+  replicas: 2                             # HA; splits/queues/caches queries
+  maxUnavailable: 1
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+
+queryScheduler:
+  replicas: 2                             # HA; hands query work to queriers
+  maxUnavailable: 1
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+indexGateway:
+  replicas: 2                             # serves the TSDB index to queriers
+  maxUnavailable: 1
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "1",  memory: 2Gi }
+
+compactor:
+  replicas: 1                             # SINGLETON — exactly one; compacts index + enforces retention
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "1",  memory: 4Gi }
+
+# ── Caching: the single biggest query-speed lever at this scale ──
+chunksCache:
+  enabled: true
+  allocatedMemory: 4096                   # MB of memcached for chunks
+resultsCache:
+  enabled: true
+  allocatedMemory: 1024                   # MB of memcached for query results
+
+# real object storage, so the bundled MinIO is off
+minio:
+  enabled: false
+
+# modes we are not running
+singleBinary: { replicas: 0 }
+read:         { replicas: 0 }
+write:        { replicas: 0 }
+backend:      { replicas: 0 }
+bloomPlanner: { replicas: 0 }
+bloomBuilder: { replicas: 0 }
+bloomGateway: { replicas: 0 }
+
+gateway:
+  enabled: true
+  replicas: 2                             # HA nginx front door
+  maxUnavailable: 1
+lokiCanary: { enabled: true }             # keep the loss/latency probe ON in production
+test:       { enabled: false }
