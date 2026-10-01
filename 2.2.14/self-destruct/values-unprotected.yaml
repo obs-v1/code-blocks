@@ -31,7 +31,16 @@ loki:
 
 singleBinary:
   replicas: 1
-  persistence: { enabled: false }            # emptyDir
+  persistence: { enabled: false }            # emptyDir — ephemeral storage
+  # With persistence off the chart leaves /var/loki unmounted on a read-only root
+  # FS, so Loki can't start. Mount a writable emptyDir there — still ephemeral
+  # (a restart wipes it → clean slate, no WAL replay).
+  extraVolumes:
+    - name: data
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/loki
   # a deliberately small memory ceiling so the flood can OOM it in a demo.
   # tune MEM up/down to your node — too low OOMs on boot, too high never OOMs.
   resources:

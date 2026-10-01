@@ -29,7 +29,13 @@ loki:
 
 singleBinary:
   replicas: 1
-  persistence: { enabled: false }
+  persistence: { enabled: false }            # ephemeral; writable emptyDir mounted at /var/loki below
+  extraVolumes:
+    - name: data
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/loki
   resources:                                 # identical ceiling to the unprotected run
     requests: { cpu: 100m, memory: 200Mi }
     limits:   { memory: 350Mi }

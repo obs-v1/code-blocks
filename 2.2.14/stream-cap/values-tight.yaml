@@ -29,6 +29,14 @@ loki:
 singleBinary:
   replicas: 1
   persistence: { enabled: false }        # emptyDir — the solve restart starts clean (no WAL replay)
+  # persistence off leaves /var/loki unmounted on a read-only root FS; mount a
+  # writable emptyDir there (still ephemeral, so the restart stays clean).
+  extraVolumes:
+    - name: data
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/loki
 
 backend:       { replicas: 0 }
 read:          { replicas: 0 }
