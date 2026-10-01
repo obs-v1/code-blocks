@@ -1,0 +1,37 @@
+# 2.2.19 — Grafana (like 1.5.x) with BOTH datasources wired, so you can go from
+# the error metric straight to the error log. grafana-community chart (the
+# maintained one). The RED-errors dashboard arrives via the sidecar.
+service:
+  type: NodePort
+  nodePort: 31300
+adminUser: admin
+adminPassword: admin
+persistence:
+  enabled: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc
+        isDefault: true
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki-gateway.monitoring.svc
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
+    folder: /tmp/dashboards
+    provider:
+      name: obs-course
+      folder: "Observability Course"
+      foldersFromFilesStructure: false

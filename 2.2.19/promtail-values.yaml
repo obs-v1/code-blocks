@@ -1,0 +1,71 @@
+# 2.2.19 — Promtail with a PER-POD parser, chosen by the bankobs `log_format`
+# label (json for 49 services, raw for 12 legacy loggers). Guessing per line is
+# the thing to avoid: a json stage against a log4j line fails silently — the line
+# still ships, just with no fields. So we branch on the label instead.
+config:
+  clients:
+    - url: http://loki-gateway.monitoring.svc/loki/api/v1/push
+
+  snippets:
+    scrapeConfigs: |
+      - job_name: bankobs
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          # ship only the bankobs fleet
+          - source_labels: [__meta_kubernetes_namespace]
+            regex: "bankobs"
+            action: keep
+          # the pod's log_format label -> a real stream label the pipeline branches on
+          - source_labels: [__meta_kubernetes_pod_label_log_format]
+            target_label: log_format
+          # stable identity labels
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          # the on-disk file to tail. separator "/" joins uid+container so $1 is
+          # "<uid>/<container>" and the path comes out right (see 2.2.17).
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+            separator: "/"
+            replacement: "/var/log/pods/*$1/*.log"
+            target_label: __path__
+        pipeline_stages:
+          - cri: {}                              # unwrap the container log framing
+
+          # ── JSON branch: 49 services, one stage covers them all ──
+          - match:
+              selector: '{log_format="json"}'
+              stages:
+                - json:
+                    expressions:
+                      level: level
+                      service: service
+                      trace_id: trace_id
+                      correlation_id: correlation_id
+                - labels:
+                    level:
+                    service:
+
+          # ── RAW branch: 12 legacy loggers. A generic "ts level rest" regex
+          #    covers the Spring/log4j patterns; add one regex per exotic format
+          #    (CLF, pipe-delimited, syslog) as you build those LogQL labs. ──
+          - match:
+              selector: '{log_format="raw"}'
+              stages:
+                - regex:
+                    expression: '^(?P<ts>\S+ \S+)\s+(?P<level>\w+)\s+(?P<rest>.*)$'
+                - labels:
+                    level:
+
+          # ── common to both branches ──
+          - drop:
+              expression: ".*(/health|/healthz|/actuator/health|healthcheck|readiness|liveness).*"
+              drop_counter_reason: "healthcheck"
+          - replace:
+              expression: '(?i)(password|passwd|pwd|token|secret)["\s:=]+([^\s",}]+)'
+              replace: '${1}=***REDACTED***'

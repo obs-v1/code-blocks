@@ -1,0 +1,56 @@
+# 2.2.14 self-destruct — THE FIX. SAME small memory ceiling (350Mi) — so it's
+# clearly the LIMITS, not more RAM, that save it. With limits_config set, the
+# flood is rejected (HTTP 429) before it can fill memory, so the pod stays under
+# its ceiling and never OOMs. Same flood, Loki survives.
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index: { prefix: index_, period: 24h }
+  limits_config:
+    retention_period: 72h
+    allow_structured_metadata: true
+    # THE GUARDRAILS — cap cardinality and write rate so the flood bounces
+    max_global_streams_per_user: 100
+    ingestion_rate_mb: 4
+    ingestion_burst_size_mb: 6
+    per_stream_rate_limit: 256KB
+    per_stream_rate_limit_burst: 512KB
+
+singleBinary:
+  replicas: 1
+  persistence: { enabled: false }
+  resources:                                 # identical ceiling to the unprotected run
+    requests: { cpu: 100m, memory: 200Mi }
+    limits:   { memory: 350Mi }
+
+backend:       { replicas: 0 }
+read:          { replicas: 0 }
+write:         { replicas: 0 }
+ingester:      { replicas: 0 }
+querier:       { replicas: 0 }
+queryFrontend: { replicas: 0 }
+queryScheduler:{ replicas: 0 }
+distributor:   { replicas: 0 }
+compactor:     { replicas: 0 }
+indexGateway:  { replicas: 0 }
+bloomPlanner:  { replicas: 0 }
+bloomBuilder:  { replicas: 0 }
+bloomGateway:  { replicas: 0 }
+
+gateway: { enabled: true, service: { type: ClusterIP } }
+chunksCache:  { enabled: false }
+resultsCache: { enabled: false }
+lokiCanary:   { enabled: false }
+test:         { enabled: false }
+minio:        { enabled: false }

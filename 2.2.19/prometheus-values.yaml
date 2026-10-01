@@ -1,0 +1,7 @@
+# 2.2.19 — Prometheus (like 1.4.14). The chart's default scrape configs discover
+# annotated pods, so it picks up the bankobs fleet automatically. Exposed on the
+# kind host-port so Grafana (and you) can reach it.
+server:
+  service:
+    type: NodePort
+    nodePort: 30990

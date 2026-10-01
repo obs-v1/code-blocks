@@ -1,0 +1,39 @@
+{
+  "uid": "red-errors-logs",
+  "title": "Errors: metric → log",
+  "tags": ["bankobs", "errors", "red", "2.2.19"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "10s",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    { "id": 10, "type": "row", "title": "The symptom — metrics say WHAT is wrong", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 1, "type": "stat", "title": "5xx rate (whole fleet)", "description": "sum of 5xx requests/sec across bankobs. This is the number that jumps when the fault injector fires.",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(http_server_request_duration_seconds_count{status=~\"5xx\"}[2m]))" } ]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "5xx rate by service — who is erroring?", "description": "Error rate split by service. The spiking line names the service to go read in Loki.",
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [ { "refId": "A", "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{status=~\"5xx\"}[2m])) > 0", "legendFormat": "{{service}}" } ]
+    },
+
+    { "id": 11, "type": "row", "title": "The cause — logs say WHY", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 } },
+    {
+      "id": 3, "type": "logs", "title": "bankobs error logs (Loki)", "description": "Error-level lines across the fleet. When a service lights up above, filter this to {service=\"<that service>\"} and read the message.",
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+      "targets": [ { "refId": "A", "expr": "{namespace=\"bankobs\", level=~\"ERROR|error\"}", "queryType": "range" } ]
+    }
+  ]
+}
