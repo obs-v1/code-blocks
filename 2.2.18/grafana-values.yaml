@@ -1,7 +1,7 @@
 # 2.2.18 — Grafana with the Loki datasource, to browse what the pipeline parsed.
 service:
   type: NodePort
-  nodePort: 31301                  # 31300 is used by 2.2.19; this lab uses 31301
+  nodePort: 31300                  # 31300 is used by 2.2.19; this lab uses 31301
 adminUser: admin
 adminPassword: admin
 persistence:
