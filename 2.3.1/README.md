@@ -23,27 +23,38 @@ the live fleet's own traces land right alongside them.
 | File | Purpose |
 |------|---------|
 | `jaeger.yaml` | Jaeger all-in-one: OTLP in (4317/4318), UI + query API out (NodePort 31686 → `:16686`) |
-| `seed-traces.sh` | posts sample traces over OTLP/HTTP: one UPI payment across 5 services, last one an error |
+| `seed-traces.sh` | posts sample traces over OTLP/HTTP: one UPI payment across 6 services, all 5 span kinds, last one an error |
 | `Makefile` | `all` (default) / `setup` / `seed` / `verify` / `trace` / `ui` / `clean` |
 | `verify.sh` | asks Jaeger's query API which services have reported spans, and checks they're there |
 
 ## The sample trace
 
-Each seeded trace is one `POST /api/upi/pay` fanning out across five services — the exact
-shape 2.3.1 asks you to read:
+Each seeded trace is one `POST /api/upi/pay` fanning out across six services, and it
+exercises **all five span kinds** — so the same traces illustrate 2.3.4 (span kinds) as
+well as the waterfall-reading 2.3.1 asks for:
 
 ```
-  gateway-service  SERVER   POST /api/upi/pay        ───────────────────────────  230ms
-   └ gateway-service CLIENT  -> upi-service           ──────────────────────────  215ms
-      └ upi-service  SERVER  POST /pay                ─────────────────────────   205ms
-         ├ upi-service CLIENT -> account-service      ───                          45ms
-         │  └ account-service SERVER /debit           ──                           38ms
-         │     └ account-service CLIENT -> ledger     ─                            20ms
-         │        └ ledger-service SERVER /post       ·                            15ms
-         ├ upi-service CLIENT -> payment-gateway            ──────────            150ms  <- the slow bar
-         │  └ payment-gateway SERVER /settle                ─────────            142ms
-         └ upi-service INTERNAL compute-fee                            ·            6ms
+  gateway-service       SERVER    POST /api/upi/pay         ────────────────────────  320ms
+   └ gateway-service    CLIENT    -> upi-service            ───────────────────────   310ms
+      └ upi-service     SERVER    POST /pay                 ──────────────────────    300ms
+         ├ upi-service  CLIENT    -> account-service        ──                         60ms
+         │  └ account-service SERVER /debit                 ─                          50ms
+         │     └ account-service CLIENT -> ledger           ·                          28ms
+         │        └ ledger-service SERVER /post             ·                          20ms
+         ├ upi-service  CLIENT    -> payment-gateway            ──────────            180ms  <- the slow bar
+         │  └ payment-gateway SERVER /settle                    ─────────            170ms
+         ├ upi-service  INTERNAL  compute-fee                              ·            8ms
+         ├ upi-service  PRODUCER  publish payments.completed (kafka)       ·            5ms
+         └ notification-service CONSUMER process payments.completed         ──          22ms
 ```
+
+| Kind | In this trace | Attributes it carries |
+|------|---------------|-----------------------|
+| SERVER   | every `/…` handler (gateway, upi, account, ledger, payment-gateway) | `http.*` |
+| CLIENT   | every outbound call (`-> account-service`, `-> payment-gateway`, …) | `http.*` |
+| PRODUCER | `upi-service` publishing `payments.completed` to Kafka | `messaging.*` |
+| CONSUMER | `notification-service` processing that message | `messaging.*` |
+| INTERNAL | `compute-fee` (in-process, no network) | `code.function` |
 
 The last trace in the batch errors (payment-gateway returns 500) so you also see a red
 trace in the list — useful again when sampling comes up in 2.3.9.
@@ -69,10 +80,11 @@ with **no** sample data, use `make setup` on its own.
 ### `make verify` (what success looks like)
 
 ```
-== services Jaeger has seen (5) ==
+== services Jaeger has seen (6) ==
   account-service
   gateway-service
   ledger-service
+  notification-service
   payment-gateway
   upi-service
 == payment-flow services present: upi-service account-service gateway-service payment-gateway ==
