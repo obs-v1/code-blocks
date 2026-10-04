@@ -48,6 +48,12 @@ Use `make seed` if you want to add the demo *without* clearing what's already th
 
 ## Show it to students
 
+The B3/legacy story is visible **right in the span names** — `[speaks B3 / legacy]`,
+`[sends B3 headers]`, `[B3 IGNORED -> new trace]`, `[B3 extracted via composite]` — and every
+span carries a `propagation.format` tag (`B3 (Zipkin, legacy)` vs `W3C traceparent only…` vs
+`composite (W3C + B3)`). The exact header string is the `outgoing.b3.header` /
+`incoming.b3.header` tag on the client/server spans.
+
 1. `make ui`, open Jaeger.
 2. **The split.** Search `Service = checkout-service`, Tags `demo.scenario=broken` → the
    trace **ends** at the call to order-service. Now search `Service = order-service`, same

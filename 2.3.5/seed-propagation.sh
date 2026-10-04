@@ -52,13 +52,13 @@ ord_root="$(openssl rand -hex 8)"; ord_int="$(openssl rand -hex 8)"
 B3="$T_CHECKOUT-$ck_cli-1"                          # the X-B3 header checkout sends
 
 broken="$(
-  span checkout-service 2 "$T_CHECKOUT" "$ck_root" "" "POST /checkout" 0 120 \
-    "$(attrs demo.scenario=broken http.route=/checkout propagator=b3 note="emits X-B3-* headers only")"
-  span checkout-service 3 "$T_CHECKOUT" "$ck_cli" "$ck_root" "POST order-service/place" 12 95 \
-    "$(attrs demo.scenario=broken peer.service=order-service "outgoing.b3.header=$B3" note="context sent as B3")"
+  span checkout-service 2 "$T_CHECKOUT" "$ck_root" "" "POST /checkout [speaks B3 / legacy]" 0 120 \
+    "$(attrs demo.scenario=broken http.route=/checkout "propagation.format=B3 (Zipkin, legacy)" note="emits X-B3-* headers only")"
+  span checkout-service 3 "$T_CHECKOUT" "$ck_cli" "$ck_root" "call order-service [sends B3 headers]" 12 95 \
+    "$(attrs demo.scenario=broken peer.service=order-service "propagation.format=B3 (Zipkin, legacy)" "outgoing.b3.header=$B3" note="context sent as B3 (X-B3-* headers)")"
   # order-service reads only W3C traceparent -> cannot see the B3 header -> NEW trace, no parent
-  span order-service 2 "$T_ORPHAN" "$ord_root" "" "POST /place" 30 80 \
-    "$(attrs demo.scenario=broken propagator=w3c-tracecontext "incoming.b3.header=$B3" \
+  span order-service 2 "$T_ORPHAN" "$ord_root" "" "POST /place [B3 IGNORED -> new trace]" 30 80 \
+    "$(attrs demo.scenario=broken "propagation.format=W3C traceparent only - cannot read B3" "incoming.b3.header=$B3" \
             "extracted.parent=none (B3 header ignored)" "expected.trace_id=$T_CHECKOUT" \
             "actual.trace_id=$T_ORPHAN" "trace.status=BROKEN: new trace started, no error logged")"
   span order-service 1 "$T_ORPHAN" "$ord_int" "$ord_root" "reserve-stock" 42 22 \
@@ -72,13 +72,13 @@ fo_root="$(openssl rand -hex 8)"; fo_int="$(openssl rand -hex 8)"
 B3F="$T_FIX-$fk_cli-1"
 
 fixed="$(
-  span checkout-service 2 "$T_FIX" "$fk_root" "" "POST /checkout" 0 125 \
-    "$(attrs demo.scenario=fixed http.route=/checkout propagators=tracecontext,b3)"
-  span checkout-service 3 "$T_FIX" "$fk_cli" "$fk_root" "POST order-service/place" 12 100 \
-    "$(attrs demo.scenario=fixed peer.service=order-service "outgoing.b3.header=$B3F")"
+  span checkout-service 2 "$T_FIX" "$fk_root" "" "POST /checkout [speaks B3 / legacy]" 0 125 \
+    "$(attrs demo.scenario=fixed http.route=/checkout "propagation.format=B3 (Zipkin, legacy)")"
+  span checkout-service 3 "$T_FIX" "$fk_cli" "$fk_root" "call order-service [sends B3 headers]" 12 100 \
+    "$(attrs demo.scenario=fixed peer.service=order-service "propagation.format=B3 (Zipkin, legacy)" "outgoing.b3.header=$B3F")"
   # composite propagator extracts the B3 context -> SAME trace, parented under the caller
-  span order-service 2 "$T_FIX" "$fo_root" "$fk_cli" "POST /place" 22 85 \
-    "$(attrs demo.scenario=fixed "propagators=composite(tracecontext,b3)" "incoming.b3.header=$B3F" \
+  span order-service 2 "$T_FIX" "$fo_root" "$fk_cli" "POST /place [B3 extracted via composite]" 22 85 \
+    "$(attrs demo.scenario=fixed "propagation.format=composite (W3C + B3)" "incoming.b3.header=$B3F" \
             "extracted.parent=$fk_cli" "trace.status=OK: one trace across both services")"
   span order-service 1 "$T_FIX" "$fo_int" "$fo_root" "reserve-stock" 40 25 \
     "$(attrs demo.scenario=fixed)"
