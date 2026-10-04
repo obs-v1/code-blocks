@@ -52,17 +52,18 @@ emit_trace() {  # $1 = base_ns   $2 = is_error(0|1)   $3 = jitter_ms
     local end_ns=$(( start_ns + dur*1000000 ))
     local psid=""; [ "$parent" != "-1" ] && psid="${sids[$parent]}"
 
+    # NB: avoid jq-keyword variable names ($end is the keyword `end`, rejected by jq <1.7).
     jq -nc \
-      --arg svc "$svc" --arg name "$name" --arg tid "$tid" --arg sid "${sids[$i]}" \
-      --arg psid "$psid" --argjson kind "$kind" \
-      --arg start "$start_ns" --arg end "$end_ns" \
+      --arg svc "$svc" --arg spanname "$name" --arg tid "$tid" --arg sid "${sids[$i]}" \
+      --arg psid "$psid" --argjson knd "$kind" \
+      --arg t0 "$start_ns" --arg t1 "$end_ns" \
       --arg http "$http" --argjson stc "$st_code" '
-      { service: $svc, traceId: $tid, spanId: $sid, parentSpanId: $psid, name: $name,
-        kind: $kind, startTimeUnixNano: $start, endTimeUnixNano: $end,
+      { service: $svc, traceId: $tid, spanId: $sid, parentSpanId: $psid, name: $spanname,
+        kind: $knd, startTimeUnixNano: $t0, endTimeUnixNano: $t1,
         attributes: [
           {key:"http.request.method",      value:{stringValue:"POST"}},
-          {key:"http.route",               value:{stringValue:$name}},
-          {key:"http.response.status_code",value:{intValue:$http}}   # OTLP/JSON: int64 as string
+          {key:"http.route",               value:{stringValue:$spanname}},
+          {key:"http.response.status_code",value:{intValue:$http}}
         ],
         status: { code: $stc } }'
   done
@@ -76,6 +77,12 @@ for ((t=0; t<COUNT; t++)); do
   is_err=0; [ "$t" = "$((COUNT-1))" ] && is_err=1   # last one errors
   batch+=$(emit_trace "$base_ns" "$is_err" $((t*9)))$'\n'
 done
+
+# guard: if jq failed to build any spans, bail loudly instead of posting an empty batch
+nspans=$(printf '%s' "$batch" | jq -s 'length' 2>/dev/null || echo 0)
+if [ "${nspans:-0}" -lt 1 ]; then
+  echo "seed ERROR: built 0 spans (jq failed above). Check: jq --version"; exit 1
+fi
 
 payload=$(printf '%s' "$batch" | jq -s '
   { resourceSpans: ( group_by(.service) | [ .[] | {
@@ -96,7 +103,7 @@ code=$(curl -s -o /tmp/seed-resp.$$ -w '%{http_code}' -X POST "$OTLP/v1/traces" 
          -H 'Content-Type: application/json' --data-binary @- <<<"$payload")
 rm -f /tmp/seed-resp.$$
 if [ "$code" = "200" ]; then
-  echo "seeded $COUNT sample traces (5 services, last one an error) -> $OTLP"
+  echo "seeded $COUNT sample traces ($nspans spans, 5 services, last one an error) -> $OTLP"
   echo ">>> make ui  ->  Service = upi-service  ->  Find Traces"
 else
   echo "seed FAILED: OTLP endpoint returned HTTP $code at $OTLP/v1/traces"; exit 1
