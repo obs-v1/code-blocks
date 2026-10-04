@@ -27,17 +27,18 @@ for s in $known; do
   if printf '%s\n' "$services" | grep -qx "$s"; then hit="$hit $s"; fi
 done
 
-echo "== bankobs services present:${hit:- none} =="
+echo "== payment-flow services present:${hit:- none} =="
 echo
 if [ -n "$hit" ]; then
-  echo "PASS — the live bankobs fleet is exporting traces into Jaeger. Open the UI and look."
+  echo "PASS — traces are landing in Jaeger (seeded samples and/or the live bankobs fleet)."
+  echo "       Open the UI and look:  make ui  ->  Service = upi-service  ->  Find Traces."
 elif [ "${count:-0}" -ge 1 ]; then
-  echo "PARTIAL — Jaeger is receiving spans, but no known bankobs service name matched."
-  echo "          Check that bankobs is running and exporting to jaeger-collector.observability.svc:4317."
+  echo "PARTIAL — Jaeger is receiving spans, but none of the expected payment services matched."
+  echo "          Re-run 'make seed', or check bankobs is exporting to jaeger-collector.observability.svc:4317."
   exit 1
 else
   echo "FAIL — Jaeger has seen no spans yet."
-  echo "       1) is bankobs running?   kubectl -n bankobs get pods"
-  echo "       2) is it exporting to jaeger-collector.observability.svc:4317 ? (see README)"
+  echo "       1) did 'make seed' run?  (re-run it)"
+  echo "       2) is bankobs exporting to jaeger-collector.observability.svc:4317 ? (see README)"
   exit 1
 fi

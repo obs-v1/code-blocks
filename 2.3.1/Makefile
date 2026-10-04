@@ -1,30 +1,41 @@
-# 2.3.1 — Stand up the Jaeger backend, then take your FIRST LOOK at a real trace.
+# 2.3.1 — Stand up the Jaeger backend, seed sample traces, take your FIRST LOOK.
 #
-#   make          deploy Jaeger all-in-one into the `observability` namespace
-#   make verify   prove the live bankobs fleet is landing spans in Jaeger
-#   make trace    (optional) fire one request at the gateway to force a fresh trace
+#   make          deploy Jaeger all-in-one AND seed sample traces (ready to view)
+#   make setup    just deploy Jaeger (no sample data)
+#   make seed     load a few sample payment traces straight into Jaeger (OTLP)
+#   make verify   prove traces are landing in Jaeger (sample data, or the live fleet)
+#   make trace    (optional) force one real request through the bankobs gateway
 #   make ui       print the Jaeger URL (or port-forward it)
 #   make clean    remove Jaeger (bankobs is left alone)
 #
-# Assumes the cluster is ALREADY running bankobs. bankobs is already instrumented and
-# exports OTLP to jaeger-collector.observability.svc:4317 — this folder just gives those
-# spans somewhere to land. If nothing shows up, see the README note on OTEL_EXPORTER.
+# Assumes the cluster is ALREADY running bankobs. bankobs is instrumented and exports
+# OTLP to jaeger-collector.observability.svc:4317 — but you don't have to wait on it:
+# `make` also SEEDS sample traces so the UI has something to show immediately. The live
+# fleet's own traces land alongside them. If the fleet never shows, see the README note.
 NS       ?= observability
 BANKOBS  ?= bankobs
+SEED_N   ?= 6
 # a service that sees most requests, used only by the optional `make trace`
 GW_SVC   ?= gateway-service
 GW_PORT  ?= 8080
 
-.DEFAULT_GOAL := setup
-.PHONY: setup verify trace ui clean
+.DEFAULT_GOAL := all
+.PHONY: all setup seed verify trace ui clean
+
+all: setup seed ## deploy Jaeger and load sample traces (the default)
+	@echo ""
+	@echo ">>> Ready. Sample traces are loaded; the live fleet's traces land here too."
+	@echo "    make verify   # confirm traces are landing"
+	@echo "    make ui       # open the waterfall"
 
 setup: ## deploy Jaeger all-in-one (OTLP in, UI out)
 	kubectl apply -f jaeger.yaml
 	kubectl -n $(NS) rollout status deploy/jaeger --timeout=120s
-	@echo ""
-	@echo ">>> Jaeger is up. bankobs spans should start landing within ~30s."
-	@echo "    make verify   # confirm the fleet is reporting"
-	@echo "    make ui       # open the waterfall"
+
+seed: ## load SEED_N sample payment traces into Jaeger over OTLP/HTTP
+	@kubectl -n $(NS) port-forward svc/jaeger-collector 4318:4318 >/dev/null 2>&1 & \
+	 PF=$$!; sleep 4; ./seed-traces.sh http://localhost:4318 $(SEED_N); RC=$$?; \
+	 kill $$PF 2>/dev/null; exit $$RC
 
 verify: ## prove the live fleet is landing traces in Jaeger
 	@kubectl -n $(NS) port-forward svc/jaeger-query 16686:16686 >/dev/null 2>&1 & \

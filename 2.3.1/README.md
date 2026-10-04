@@ -6,10 +6,16 @@ them. This folder stands up **Jaeger all-in-one** in the `observability` namespa
 exact address the fleet exports to and the Grafana datasource (`1.5.1`) already points at
 (`jaeger-query.observability.svc:16686`) — so the spans finally have somewhere to land.
 
+To make the first look **instant** (no waiting on the fleet, no bankobs wiring to debug),
+`make` also **seeds a few sample payment traces** straight into Jaeger. They model exactly
+the waterfall the section describes, so the UI has something to show the moment it opens;
+the live fleet's own traces land right alongside them.
+
 ```
-  bankobs fleet ──OTLP 4317──► jaeger-collector ─► Jaeger (all-in-one) ─► jaeger-query :16686 (UI)
-   (already                       observability ns                         NodePort 31686 -> host :16686
-    instrumented)
+  seed-traces.sh ─OTLP 4318─┐
+                            ├─► jaeger-collector ─► Jaeger (all-in-one) ─► jaeger-query :16686 (UI)
+  bankobs fleet  ─OTLP 4317─┘      observability ns                        NodePort 31686 -> host :16686
+   (already instrumented)
 ```
 
 ## What's here
@@ -17,46 +23,75 @@ exact address the fleet exports to and the Grafana datasource (`1.5.1`) already 
 | File | Purpose |
 |------|---------|
 | `jaeger.yaml` | Jaeger all-in-one: OTLP in (4317/4318), UI + query API out (NodePort 31686 → `:16686`) |
-| `Makefile` | `setup` / `verify` / `trace` / `ui` / `clean` |
-| `verify.sh` | asks Jaeger's query API which services have reported spans, and checks the fleet is there |
+| `seed-traces.sh` | posts sample traces over OTLP/HTTP: one UPI payment across 5 services, last one an error |
+| `Makefile` | `all` (default) / `setup` / `seed` / `verify` / `trace` / `ui` / `clean` |
+| `verify.sh` | asks Jaeger's query API which services have reported spans, and checks they're there |
+
+## The sample trace
+
+Each seeded trace is one `POST /api/upi/pay` fanning out across five services — the exact
+shape 2.3.1 asks you to read:
+
+```
+  gateway-service  SERVER   POST /api/upi/pay        ───────────────────────────  230ms
+   └ gateway-service CLIENT  -> upi-service           ──────────────────────────  215ms
+      └ upi-service  SERVER  POST /pay                ─────────────────────────   205ms
+         ├ upi-service CLIENT -> account-service      ───                          45ms
+         │  └ account-service SERVER /debit           ──                           38ms
+         │     └ account-service CLIENT -> ledger     ─                            20ms
+         │        └ ledger-service SERVER /post       ·                            15ms
+         ├ upi-service CLIENT -> payment-gateway            ──────────            150ms  <- the slow bar
+         │  └ payment-gateway SERVER /settle                ─────────            142ms
+         └ upi-service INTERNAL compute-fee                            ·            6ms
+```
+
+The last trace in the batch errors (payment-gateway returns 500) so you also see a red
+trace in the list — useful again when sampling comes up in 2.3.9.
 
 ## Prereqs
 
-- A Kubernetes cluster (validated on single-node **kind**) already running **bankobs**.
-- `kubectl`, and `jq` for `make verify`.
+- A Kubernetes cluster (validated on single-node **kind**).
+- `kubectl`, plus `jq` + `openssl` for seeding and `make verify`.
+- bankobs is **optional** for 2.3.1 — the sample traces stand alone. (It's required once
+  you want to see the *live* fleet, and for later sections.)
 
 ## Run
 
 ```bash
-make            # deploy Jaeger into the observability namespace
-# give it ~30s for the first spans to arrive
-make verify     # confirm the live fleet is landing traces
-make ui         # print the Jaeger URL  ->  pick a Service  ->  Find Traces
+make            # deploy Jaeger into observability AND seed sample traces
+make verify     # confirm traces are landing
+make ui         # print the Jaeger URL  ->  Service = upi-service  ->  Find Traces
 ```
+
+Re-seed any time with `make seed` (or `make seed SEED_N=20` for more). To deploy Jaeger
+with **no** sample data, use `make setup` on its own.
 
 ### `make verify` (what success looks like)
 
 ```
-== services Jaeger has seen (11) ==
+== services Jaeger has seen (5) ==
   account-service
   gateway-service
+  ledger-service
   payment-gateway
   upi-service
-  ...
-== bankobs services present: upi-service account-service gateway-service payment-gateway ==
+== payment-flow services present: upi-service account-service gateway-service payment-gateway ==
 
-PASS — the live bankobs fleet is exporting traces into Jaeger. Open the UI and look.
+PASS — traces are landing in Jaeger (seeded samples and/or the live bankobs fleet).
 ```
+
+(With bankobs exporting too, you'll see its other services in the list as well.)
 
 Then `make ui`, open the URL, choose **Service = upi-service → Find Traces → open the
 newest row**, and read the waterfall. That picture — one bar per piece of work, stacked
 by cause, sized by duration — is the whole of section 2.3.1.
 
-## Nothing showing up?
+## Seeing the LIVE fleet (not just the samples)
 
-Jaeger is up but `make verify` finds no spans → the fleet isn't reaching this collector.
-bankobs should export to **`jaeger-collector.observability.svc:4317`**. Point it there by
-setting the standard OTLP env on the fleet (adjust to how bankobs is deployed):
+The sample traces always work. To also see bankobs's **own** traces, the fleet must export
+to **`jaeger-collector.observability.svc:4317`**. If `make verify` shows only the five
+sample services, point the fleet there by setting the standard OTLP env (adjust to how
+bankobs is deployed):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector.observability.svc:4317
