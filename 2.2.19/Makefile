@@ -11,8 +11,11 @@
 # API (no bankobs repo needed on the box).
 NS        ?= monitoring
 BANKOBS   ?= bankobs
-FAULT_SVC ?= account-service    # a dependency many services call; stopping it makes callers fail+log
-FAULT_DUR ?= 300                # auto-reverts after this many seconds (safety TTL)
+# FAULT_SVC: a dependency many services call; stopping it makes callers fail + log.
+# Keep the value clean — an inline comment here would leave trailing spaces in the
+# JSON fault payload ("service":"account-service   ") and the injector won't match it.
+FAULT_SVC ?= account-service
+FAULT_DUR ?= 300
 
 .DEFAULT_GOAL := demo
 .PHONY: demo stack repo prometheus loki promtail grafana dashboards fault reset ui clean
