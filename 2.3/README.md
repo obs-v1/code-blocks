@@ -26,13 +26,16 @@ becomes a convenience you can debug.
 ## Run
 
 ```bash
-make setup      # build the image, kind-load it, deploy Jaeger + both services
-# give it ~30s
+make setup      # build image, kind-load it, deploy Jaeger + both services,
+                #   then WIPE old traces so you start on a clean slate
+# give it ~30s for the driver to generate a fresh trace
 make watch      # the payoff — same traceparent on both sides
 make verify     # one trace spans BOTH services
 ```
 
-`make setup` runs on the box (it builds an image and `kind load`s it).
+`make setup` runs on the box (it builds an image and `kind load`s it). It restarts this
+lab's Jaeger at the end, so you only see traces from this run — use `make wipe` any time
+to clear it again without redeploying.
 
 ## The payoff (`make watch`)
 

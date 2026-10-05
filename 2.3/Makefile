@@ -1,18 +1,20 @@
-# 2.3.10 — Two services, one trace (watch the traceparent cross the wire)
+# 2.3.11 — Two services, one trace (watch the traceparent cross the wire)
 #
-#   make          # build image, deploy Jaeger + service-a -> service-b + driver
+#   make          # build image, deploy Jaeger + service-a -> service-b + driver,
+#                 #   then WIPE old traces so you start on a clean slate
 #   make watch    # tail the frontend/backend logs: same traceparent, both sides
 #   make verify   # prove one trace spans BOTH services
 #   make ui       # port-forward the Jaeger UI to http://localhost:16686
+#   make wipe     # clear this lab's Jaeger (traces from a previous run)
 #   make destroy  # tear it down
 #
 IMG := trace-lab:1.0
 NS  := tracing
 
 .DEFAULT_GOAL := setup
-.PHONY: setup image deploy watch verify ui destroy
+.PHONY: setup image deploy wipe watch verify ui destroy
 
-setup: image deploy ## build + deploy everything
+setup: image deploy wipe ## build + deploy everything, then clear any old traces
 
 image: ## build the tiny Flask+OTel image and load it into kind
 	docker build -t $(IMG) .
@@ -24,7 +26,12 @@ deploy: ## Jaeger + the two services + a driver
 	kubectl -n $(NS) rollout status deploy/jaeger --timeout=120s
 	kubectl -n $(NS) rollout status deploy/service-b --timeout=120s
 	kubectl -n $(NS) rollout status deploy/service-a --timeout=120s
-	@echo "give it ~30s, then: make watch   and   make verify"
+
+wipe: ## restart this lab's Jaeger to clear traces from a previous run (in-memory store)
+	kubectl -n $(NS) rollout restart deploy/jaeger
+	kubectl -n $(NS) rollout status deploy/jaeger --timeout=120s
+	@echo "clean slate. Give it ~30s for the driver to generate a fresh trace,"
+	@echo "then: make watch   and   make verify"
 
 watch: ## see the same traceparent leave the frontend and arrive at the backend
 	@echo "-- frontend SENDING --"; kubectl -n $(NS) logs deploy/service-a --tail=3 | grep SENDING || true
