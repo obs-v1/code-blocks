@@ -34,24 +34,27 @@ lesson in 2.3.5); OpenCensus already speaks **W3C `traceparent`** (it helped sha
 
 ## Run
 
-Both apps report to **one shared legacy Jaeger** (Thrift over HTTP on `:14268`, UI on NodePort
-`31687`), so you see **both in a single UI**. Easiest — bring up both at once from *this*
+Both apps report to the **same Jaeger as the OTel lab** one level up — a Jaeger backend speaks
+modern **OTLP** *and* legacy **Thrift** (`:14268`), so `service-a`/`service-b` (OTLP) and
+`ot-*`/`oc-*` (Thrift) all land in **one UI on `:16686`**. Bring up both at once from *this*
 folder:
 
 ```bash
-make          # legacy Jaeger + BOTH apps, one clean wipe, then a burst of traffic
+make          # ensure the lab Jaeger (with :14268) is up, deploy both apps, send traffic
 make verify   # PASS for both
-make ui       # the shared Jaeger (http://<box-ip>:31687)
-make traffic  # re-send a burst any time (there is no standing driver pod)
+make ui       # the shared Jaeger (http://<box-ip>:16686)
+make traffic  # re-send a burst any time (no standing driver pod)
 ```
 
-> Lightweight by design: the apps have **no standing driver pod** — `make` sends a burst of
-> requests once (via a port-forward), and `make traffic` re-sends on demand. That keeps the
-> footprint to 4 app pods + 1 Jaeger, which matters on a packed single-node cluster.
+> Lightweight by design: **no second Jaeger and no standing driver pod**. `make` applies the
+> OTel lab's `../jaeger.yaml` (which now also exposes the legacy `:14268` port), deploys the
+> four app pods, and sends one burst of traffic via a port-forward. Reusing the one Jaeger is
+> also why everything is viewable at the single reachable `:16686`.
 
-The Service dropdown then lists `ot-frontend` / `ot-backend` **and** `oc-frontend` /
-`oc-backend`; the **System Architecture** tab shows both `frontend -> backend` pairs. Open an
-`ot-*` span (header `uber-trace-id`) next to an `oc-*` span (header `traceparent`) for the
+The Service dropdown then lists `service-a`/`service-b`, `ot-frontend`/`ot-backend` **and**
+`oc-frontend`/`oc-backend`; the **System Architecture** tab shows all the `frontend -> backend`
+pairs. Open an `ot-*` span (header `uber-trace-id`) next to an `oc-*` span (header `traceparent`)
+for the
 legacy-vs-modern contrast.
 
 Or run just one era from its subfolder (`opentracing/` or `opencensus/`): `make` /

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # before-otel / OpenTracing — prove propagation worked with the pre-OTel library:
-# one trace in the legacy Jaeger spans BOTH ot-frontend and ot-backend.
+# one trace in the lab Jaeger spans BOTH ot-frontend and ot-backend.
 # Usage: ./verify.sh [JAEGER_URL]   (default http://localhost:16686)
 set -uo pipefail
 J="${1:-http://localhost:16686}"

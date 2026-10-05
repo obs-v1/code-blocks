@@ -9,7 +9,7 @@
 frontend (ot-frontend)  --HTTP + uber-trace-id-->  backend (ot-backend)
    start_active_span                                   extract(HTTP_HEADERS)
    inject(HTTP_HEADERS)                                start_active_span(child_of=...)
-          └──────────── both report to legacy Jaeger (:14268) ───────────┘
+          └──────────── both report to the lab Jaeger (:14268) ───────────┘
                          one trace_id, two services
 ```
 
@@ -28,11 +28,11 @@ frontend (ot-frontend)  --HTTP + uber-trace-id-->  backend (ot-backend)
 ## Run
 
 ```bash
-make            # build trace-ot:1.0, deploy legacy Jaeger + ot-frontend/ot-backend, wipe
+make            # build trace-ot:1.0, deploy to the lab Jaeger + ot-frontend/ot-backend
 make watch      # same uber-trace-id leaves the frontend, arrives at the backend
 make verify     # PASS: one trace spans ot-frontend AND ot-backend
-make ui         # legacy Jaeger (search Service=ot-frontend)
-make destroy    # remove this app (shared legacy Jaeger stays)
+make ui         # the shared Jaeger :16686 (search Service=ot-frontend)
+make destroy    # remove this app (shared Jaeger stays)
 ```
 
 See `../README.md` for the full evolution and the OpenCensus sibling.

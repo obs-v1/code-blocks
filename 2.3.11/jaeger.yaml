@@ -1,5 +1,7 @@
 # 2.3.11 lab — Jaeger all-in-one (collector + query + UI, in-memory storage).
-# OTLP enabled so services can export straight to it on 4317/4318.
+# OTLP enabled on 4317/4318 (modern). The legacy Thrift-HTTP collector on 14268 is also
+# exposed so the pre-OTel before-otel/ apps (jaeger-client / OpenCensus) report to THIS
+# same Jaeger — one backend speaks both protocols, so everything shows in one UI.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,17 +23,19 @@ spec:
             - { containerPort: 16686 }   # UI
             - { containerPort: 4317 }     # OTLP gRPC
             - { containerPort: 4318 }     # OTLP HTTP
+            - { containerPort: 14268 }    # legacy collector: Thrift over HTTP (before-otel apps)
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: jaeger-collector          # services export here (OTLP)
+  name: jaeger-collector          # services export here (OTLP 4317/4318, legacy Thrift 14268)
   namespace: tracing
 spec:
   selector: { app: jaeger }
   ports:
-    - { name: otlp-grpc, port: 4317, targetPort: 4317 }
-    - { name: otlp-http, port: 4318, targetPort: 4318 }
+    - { name: otlp-grpc,   port: 4317,  targetPort: 4317 }
+    - { name: otlp-http,   port: 4318,  targetPort: 4318 }
+    - { name: thrift-http, port: 14268, targetPort: 14268 }   # before-otel apps post here
 ---
 apiVersion: v1
 kind: Service

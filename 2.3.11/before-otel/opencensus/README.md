@@ -3,13 +3,13 @@
 **OpenCensus** (2018, Google) was the other pre-OTel option. Unlike OpenTracing (an API
 only), OpenCensus bundled the **API + SDK + exporters** in one library, for **traces and
 metrics**. Its auto-instrumentation for frameworks is the ancestor of OTel's. Here it exports
-traces to the shared legacy Jaeger.
+traces to the shared Jaeger.
 
 ```
 frontend (oc-frontend)  --HTTP + traceparent-->  backend (oc-backend)
    FlaskMiddleware (span)                            FlaskMiddleware (extract -> child)
    requests integration (inject)
-          └──────────── both report to legacy Jaeger (:14268) ───────────┘
+          └──────────── both report to the lab Jaeger (:14268) ───────────┘
                          one trace_id, two services
 ```
 
@@ -28,11 +28,11 @@ frontend (oc-frontend)  --HTTP + traceparent-->  backend (oc-backend)
 ## Run
 
 ```bash
-make            # build trace-oc:1.0, deploy legacy Jaeger + oc-frontend/oc-backend, wipe
+make            # build trace-oc:1.0, deploy to the lab Jaeger + oc-frontend/oc-backend
 make watch      # context leaves the frontend, arrives at the backend
 make verify     # PASS: one trace spans oc-frontend AND oc-backend
-make ui         # legacy Jaeger (search Service=oc-frontend)
-make destroy    # remove this app (shared legacy Jaeger stays)
+make ui         # the shared Jaeger :16686 (search Service=oc-frontend)
+make destroy    # remove this app (shared Jaeger stays)
 ```
 
 See `../README.md` for the full evolution and the OpenTracing sibling.

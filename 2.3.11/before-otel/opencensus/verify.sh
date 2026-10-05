@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# before-otel / OpenCensus — prove propagation: one trace in the legacy Jaeger spans BOTH
+# before-otel / OpenCensus — prove propagation: one trace in the lab Jaeger spans BOTH
 # oc-frontend and oc-backend.
 # Usage: ./verify.sh [JAEGER_URL]   (default http://localhost:16686)
 set -uo pipefail

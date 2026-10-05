@@ -2,7 +2,7 @@
 """before-otel / OpenCensus — Google's pre-OTel "all-in-one library" (API + SDK + exporters).
 Same frontend->backend flow. OpenCensus auto-instruments Flask (incoming) and requests
 (outgoing) and propagates W3C `traceparent` via TraceContextPropagator — OpenCensus is part
-of why that header exists. Spans export to the shared legacy Jaeger over Thrift/HTTP :14268."""
+of why that header exists. Spans export to the the lab Jaeger over Thrift/HTTP :14268."""
 import os, logging
 from flask import Flask, request
 import requests
@@ -17,7 +17,7 @@ log = logging.getLogger("svc")
 ROLE = os.environ.get("ROLE", "backend")
 SERVICE = os.environ.get("SERVICE_NAME", "oc-" + ("frontend" if ROLE == "frontend" else "backend"))
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8080/work")
-JAEGER_HOST = os.environ.get("JAEGER_COLLECTOR_HOST", "jaeger-legacy.tracing-legacy.svc")
+JAEGER_HOST = os.environ.get("JAEGER_COLLECTOR_HOST", "jaeger-collector.tracing.svc")
 JAEGER_PORT = int(os.environ.get("JAEGER_COLLECTOR_PORT", "14268"))
 
 # the exporter posts Thrift batches to http://<host>:<port>/api/traces (the legacy collector)
