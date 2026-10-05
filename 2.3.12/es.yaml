@@ -1,0 +1,45 @@
+# 2.3.12 — single-node Elasticsearch for Jaeger storage (LAB sizing, NOT production).
+#
+# We run ES ourselves (official image) instead of the Jaeger chart's bundled ES subchart,
+# because that subchart is Bitnami's and Bitnami's free Docker Hub images are no longer
+# reliably pullable (2025). This keeps ES controllable: single node, security off, small heap.
+# For real sizing you'd use 3+ data nodes and a much larger heap (see the README).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: elasticsearch } }
+  template:
+    metadata:
+      labels: { app: elasticsearch }
+    spec:
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22
+          env:
+            - { name: discovery.type,          value: single-node }
+            - { name: xpack.security.enabled,   value: "false" }   # lab: no TLS/auth
+            - { name: ES_JAVA_OPTS,             value: "-Xms512m -Xmx512m" }  # tiny heap for the lab
+          ports:
+            - { containerPort: 9200 }
+          readinessProbe:
+            httpGet: { path: "/_cluster/health?wait_for_status=yellow&timeout=1s", port: 9200 }
+            initialDelaySeconds: 25
+            periodSeconds: 10
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 250m, memory: 1Gi }
+            limits:   { memory: 1536Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+spec:
+  selector: { app: elasticsearch }
+  ports:
+    - { name: http, port: 9200, targetPort: 9200 }

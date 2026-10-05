@@ -1,0 +1,39 @@
+# 2.3.12 — Jaeger v1 PRODUCTION topology via Helm: separate collector + query, backed by
+# Elasticsearch. Deployed as release "jaeger" in namespace "monitoring", so the collector
+# service is jaeger-collector.monitoring.svc — exactly the OTLP address the bankobs fleet
+# already exports to (:4317). This REPLACES the 2.3.1 all-in-one Jaeger.
+#
+# Chart: jaegertracing/jaeger (v1 line). Validated with chart 3.4.1.
+
+# We provide our own single-node ES (es.yaml) — do NOT provision the chart's bundled stores.
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+
+storage:
+  type: elasticsearch
+  elasticsearch:
+    host: elasticsearch          # resolves to elasticsearch.monitoring.svc
+    port: 9200
+    scheme: http                 # security disabled in the lab ES
+    user: ""
+    usePassword: false
+
+# The fleet sends OTLP straight to the collector, so the per-node agent is not needed.
+agent:
+  enabled: false
+
+collector:
+  enabled: true
+  # Configuring the OTLP service turns on the collector's OTLP receivers (4317 gRPC / 4318 HTTP) —
+  # the chart sets COLLECTOR_OTLP_ENABLED for us, so do NOT also set it in extraEnv (duplicate key).
+  service:
+    otlp:
+      grpc: { name: otlp-grpc, port: 4317 }
+      http: { name: otlp-http, port: 4318 }
+
+query:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 31686              # kind maps this to host :16686 (same as the 2.3.1 all-in-one)

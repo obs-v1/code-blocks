@@ -1,0 +1,22 @@
+# 2.3.12 — route the bankobs fleet's traces INTO this production Jaeger.
+#
+# The fleet doesn't talk to Jaeger directly. Every bankobs service exports OTLP to an
+# OTel Collector in the `bankobs` namespace, and that Collector forwards traces to a
+# service it knows only as `jaeger` (i.e. jaeger.bankobs.svc:4317). By default that name
+# is the all-in-one Jaeger the obs stack ships.
+#
+# This ExternalName makes `jaeger` in the bankobs namespace a DNS alias for THIS section's
+# production collector (jaeger-collector in the `monitoring` namespace). So the Collector's
+# unchanged `jaeger:4317` export now lands in the Helm+Elasticsearch Jaeger — no Collector
+# reconfig, no re-pointing the 62 services. One line of DNS swaps the backend underneath them.
+#
+#   otel-collector (bankobs) ──"jaeger:4317"──► [alias] ──► jaeger-collector.monitoring.svc:4317
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: bankobs
+spec:
+  type: ExternalName
+  externalName: jaeger-collector.monitoring.svc.cluster.local
