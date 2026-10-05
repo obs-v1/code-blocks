@@ -35,7 +35,7 @@ traffic: ## fire 20 requests at the frontend to generate traces (uses a port-for
 	 PF=$$!; sleep 3; \
 	 for i in $$(seq 1 20); do curl -s localhost:8080/call >/dev/null 2>&1; sleep 0.3; done; \
 	 echo "sent 20 requests to $(NS)/frontend  ->  make watch / make verify / make ui"; \
-	 kill $$PF 2>/dev/null
+	 kill $$PF 2>/dev/null || true
 
 watch: ## same uber-trace-id on both sides of the wire
 	@echo "-- frontend SENDING --"; kubectl -n $(NS) logs deploy/frontend --tail=3 | grep SENDING || true
