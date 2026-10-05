@@ -1,7 +1,8 @@
 # before-otel / OpenTracing + jaeger-client (the pre-OTel "API + vendor tracer" era).
 # Same frontend->backend flow as the OTel lab one level up, built the OLD way.
 #
-#   make          build image, deploy legacy Jaeger + both services, then wipe old traces
+#   make          build image, deploy legacy Jaeger + both services, wipe, generate traffic
+#   make traffic  fire a burst of requests at the frontend (generates traces)
 #   make watch    tail the logs: same uber-trace-id leaves frontend, arrives at backend
 #   make verify   prove one trace spans ot-frontend AND ot-backend
 #   make ui       print the legacy Jaeger URL
@@ -13,15 +14,15 @@ NS  := otracing
 JNS := tracing-legacy
 
 .DEFAULT_GOAL := setup
-.PHONY: setup image deploy wipe watch verify ui destroy
+.PHONY: setup image deploy wipe traffic watch verify ui destroy
 
-setup: image deploy wipe ## build + deploy, then start on a clean Jaeger
+setup: image deploy wipe traffic ## build + deploy on a clean Jaeger, then send traffic
 
 image: ## build the OpenTracing/jaeger-client image and load it into kind
 	docker build -t $(IMG) .
 	kind load docker-image $(IMG) --name $$(kind get clusters | head -1)
 
-deploy: ## legacy Jaeger (:14268) + frontend/backend + driver
+deploy: ## legacy Jaeger (:14268) + frontend/backend (no standing driver pod)
 	kubectl apply -f ../jaeger-legacy.yaml
 	kubectl -n $(JNS) rollout status deploy/jaeger-legacy --timeout=120s
 	kubectl apply -f services.yaml
@@ -31,7 +32,13 @@ deploy: ## legacy Jaeger (:14268) + frontend/backend + driver
 wipe: ## restart the legacy Jaeger to clear its in-memory store (traces from a prior run)
 	kubectl -n $(JNS) rollout restart deploy/jaeger-legacy
 	kubectl -n $(JNS) rollout status deploy/jaeger-legacy --timeout=120s
-	@echo "clean slate. give it ~30s for the driver to generate a trace, then: make watch / make verify"
+
+traffic: ## fire 20 requests at the frontend to generate traces (uses a port-forward, no extra pod)
+	@kubectl -n $(NS) port-forward svc/frontend 8080:8080 >/dev/null 2>&1 & \
+	 PF=$$!; sleep 3; \
+	 for i in $$(seq 1 20); do curl -s localhost:8080/call >/dev/null 2>&1; sleep 0.3; done; \
+	 echo "sent 20 requests to $(NS)/frontend  ->  make watch / make verify / make ui"; \
+	 kill $$PF 2>/dev/null
 
 watch: ## same uber-trace-id on both sides of the wire
 	@echo "-- frontend SENDING --"; kubectl -n $(NS) logs deploy/frontend --tail=3 | grep SENDING || true

@@ -39,10 +39,15 @@ Both apps report to **one shared legacy Jaeger** (Thrift over HTTP on `:14268`, 
 folder:
 
 ```bash
-make          # legacy Jaeger + BOTH apps (OpenTracing & OpenCensus), one clean wipe
+make          # legacy Jaeger + BOTH apps, one clean wipe, then a burst of traffic
 make verify   # PASS for both
 make ui       # the shared Jaeger (http://<box-ip>:31687)
+make traffic  # re-send a burst any time (there is no standing driver pod)
 ```
+
+> Lightweight by design: the apps have **no standing driver pod** — `make` sends a burst of
+> requests once (via a port-forward), and `make traffic` re-sends on demand. That keeps the
+> footprint to 4 app pods + 1 Jaeger, which matters on a packed single-node cluster.
 
 The Service dropdown then lists `ot-frontend` / `ot-backend` **and** `oc-frontend` /
 `oc-backend`; the **System Architecture** tab shows both `frontend -> backend` pairs. Open an

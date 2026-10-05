@@ -1,7 +1,8 @@
 # before-otel — bring up BOTH pre-OTel apps against one shared legacy Jaeger, so you can
 # show OpenTracing and OpenCensus traces side by side in a single UI (:31687).
 #
-#   make          deploy legacy Jaeger + both apps (OpenTracing & OpenCensus), one clean wipe
+#   make          deploy legacy Jaeger + both apps, one clean wipe, then generate traffic
+#   make traffic  fire a burst at both frontends (generates traces)
 #   make verify   prove propagation worked for both
 #   make ui       print the shared legacy Jaeger URL
 #   make destroy  remove both apps (and the shared Jaeger)
@@ -9,14 +10,15 @@
 JNS := tracing-legacy
 
 .DEFAULT_GOAL := all
-.PHONY: all jaeger ot oc wipe verify ui destroy
+.PHONY: all jaeger ot oc wipe traffic verify ui destroy
 
-all: jaeger ot oc wipe ## both apps up, one Jaeger, one clean slate
+all: jaeger ot oc wipe traffic ## both apps up, one Jaeger, clean slate, traffic sent
 	@echo ""
-	@echo ">>> Both apps are running and reporting to the SAME Jaeger."
-	@echo "    Give it ~30s, then  make ui  — the Service dropdown has:"
+	@echo ">>> Both apps are up and reporting to the SAME Jaeger; traffic sent."
+	@echo "    make ui  — the Service dropdown has:"
 	@echo "      ot-frontend / ot-backend  (OpenTracing + jaeger-client, uber-trace-id)"
 	@echo "      oc-frontend / oc-backend  (OpenCensus, traceparent)"
+	@echo "    re-send traffic any time with  make traffic"
 
 jaeger: ## the shared legacy Jaeger (:14268 ingest, :31687 UI)
 	kubectl apply -f jaeger-legacy.yaml
@@ -28,9 +30,13 @@ ot: ## build + deploy the OpenTracing app (no per-app wipe)
 oc: ## build + deploy the OpenCensus app (no per-app wipe)
 	$(MAKE) -C opencensus image deploy
 
-wipe: ## one restart of the shared Jaeger, so both apps repopulate a clean store together
+wipe: ## one restart of the shared Jaeger, so both apps report into a clean store together
 	kubectl -n $(JNS) rollout restart deploy/jaeger-legacy
 	kubectl -n $(JNS) rollout status deploy/jaeger-legacy --timeout=120s
+
+traffic: ## fire a burst at both frontends (generates traces for both apps)
+	@$(MAKE) -C opentracing traffic
+	@$(MAKE) -C opencensus traffic
 
 verify: ## prove propagation for both apps
 	@$(MAKE) -C opentracing verify
