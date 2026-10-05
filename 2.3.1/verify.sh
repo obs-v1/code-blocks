@@ -34,11 +34,11 @@ if [ -n "$hit" ]; then
   echo "       Open the UI and look:  make ui  ->  Service = upi-service  ->  Find Traces."
 elif [ "${count:-0}" -ge 1 ]; then
   echo "PARTIAL — Jaeger is receiving spans, but none of the expected payment services matched."
-  echo "          Re-run 'make seed', or check bankobs is exporting to jaeger-collector.observability.svc:4317."
+  echo "          Re-run 'make seed', or check bankobs is exporting to jaeger-collector.monitoring.svc:4317."
   exit 1
 else
   echo "FAIL — Jaeger has seen no spans yet."
   echo "       1) did 'make seed' run?  (re-run it)"
-  echo "       2) is bankobs exporting to jaeger-collector.observability.svc:4317 ? (see README)"
+  echo "       2) is bankobs exporting to jaeger-collector.monitoring.svc:4317 ? (see README)"
   exit 1
 fi

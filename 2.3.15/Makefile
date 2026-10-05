@@ -9,7 +9,7 @@
 #   make ui       print the Jaeger URL
 #   make clean    wipe Jaeger's in-memory store
 #
-NS ?= observability
+NS ?= monitoring
 
 .DEFAULT_GOAL := all
 .PHONY: all wipe seed verify hunt ui clean

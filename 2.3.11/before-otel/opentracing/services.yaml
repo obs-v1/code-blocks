@@ -1,0 +1,76 @@
+# before-otel / OpenTracing — two services from one image + a driver. frontend -> backend,
+# context propagated via OpenTracing's jaeger-client (uber-trace-id). Both report to the
+# shared legacy Jaeger on :14268 (JAEGER_ENDPOINT). Service names ot-frontend / ot-backend
+# keep this distinct from the OpenCensus demo in the same Jaeger UI.
+apiVersion: v1
+kind: Namespace
+metadata: { name: otracing }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: backend, namespace: otracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: backend } }
+  template:
+    metadata: { labels: { app: backend } }
+    spec:
+      containers:
+        - name: app
+          image: trace-ot:1.0          # built + kind-loaded by the Makefile
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "backend" }
+            - { name: SERVICE_NAME, value: "ot-backend" }
+            - { name: JAEGER_ENDPOINT, value: "http://jaeger-legacy.tracing-legacy.svc:14268/api/traces" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: backend, namespace: otracing }
+spec:
+  selector: { app: backend }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: frontend, namespace: otracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata: { labels: { app: frontend } }
+    spec:
+      containers:
+        - name: app
+          image: trace-ot:1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "frontend" }
+            - { name: SERVICE_NAME, value: "ot-frontend" }
+            - { name: BACKEND_URL, value: "http://backend.otracing.svc:8080/work" }
+            - { name: JAEGER_ENDPOINT, value: "http://jaeger-legacy.tracing-legacy.svc:14268/api/traces" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: frontend, namespace: otracing }
+spec:
+  selector: { app: frontend }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+# driver: hit the frontend every few seconds so traces keep flowing
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: driver, namespace: otracing }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: driver } }
+  template:
+    metadata: { labels: { app: driver } }
+    spec:
+      containers:
+        - name: driver
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh", "-c"]
+          args: ["while true; do curl -s http://frontend.otracing.svc:8080/call >/dev/null; sleep 4; done"]

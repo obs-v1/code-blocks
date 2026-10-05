@@ -9,10 +9,10 @@
 #   make clean    remove Jaeger (bankobs is left alone)
 #
 # Assumes the cluster is ALREADY running bankobs. bankobs is instrumented and exports
-# OTLP to jaeger-collector.observability.svc:4317 — but you don't have to wait on it:
+# OTLP to jaeger-collector.monitoring.svc:4317 — but you don't have to wait on it:
 # `make` also SEEDS sample traces so the UI has something to show immediately. The live
 # fleet's own traces land alongside them. If the fleet never shows, see the README note.
-NS       ?= observability
+NS       ?= monitoring
 BANKOBS  ?= bankobs
 SEED_N   ?= 6
 # a service that sees most requests, used only by the optional `make trace`

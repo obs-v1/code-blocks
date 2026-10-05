@@ -1,4 +1,4 @@
-# 2.3.10 lab — tiny Flask + OpenTelemetry image, run under the OTel auto-agent
+# 2.3.11 lab — tiny Flask + OpenTelemetry image, run under the OTel auto-agent
 # so the Flask server + outbound requests are instrumented and propagate context.
 FROM python:3.11-slim
 RUN pip install --no-cache-dir \

@@ -33,7 +33,7 @@ producer never injected `traceparent`.
 
 ## Prereqs
 
-- The Jaeger from **`code-blocks/2.3.1`** already running (`observability` namespace).
+- The Jaeger from **`code-blocks/2.3.1`** already running (`monitoring` namespace).
 - `kubectl`, `jq`, `openssl`.
 
 ## Run

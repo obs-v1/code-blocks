@@ -28,4 +28,4 @@ datasources:
     uid: jaeger
     type: jaeger
     access: proxy
-    url: http://jaeger-query.observability.svc:16686
+    url: http://jaeger-query.monitoring.svc:16686

@@ -34,7 +34,7 @@ propagation story (`propagation=... INJECTED/EXTRACTED`, or `expected.trace_id` 
 
 ## Prereqs
 
-- The Jaeger from **`code-blocks/2.3.1`** already running (`observability` namespace).
+- The Jaeger from **`code-blocks/2.3.1`** already running (`monitoring` namespace).
 - `kubectl`, `jq`, `openssl`.
 
 ## Run

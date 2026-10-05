@@ -2,9 +2,9 @@
 
 The bankobs fleet is **already instrumented** — every service emits spans and tries to
 export them over OTLP. What has been missing is the **backend** that collects and shows
-them. This folder stands up **Jaeger all-in-one** in the `observability` namespace — the
+them. This folder stands up **Jaeger all-in-one** in the `monitoring` namespace — the
 exact address the fleet exports to and the Grafana datasource (`1.5.1`) already points at
-(`jaeger-query.observability.svc:16686`) — so the spans finally have somewhere to land.
+(`jaeger-query.monitoring.svc:16686`) — so the spans finally have somewhere to land.
 
 To make the first look **instant** (no waiting on the fleet, no bankobs wiring to debug),
 `make` also **seeds a few sample payment traces** straight into Jaeger. They model exactly
@@ -14,7 +14,7 @@ the live fleet's own traces land right alongside them.
 ```
   seed-traces.sh ─OTLP 4318─┐
                             ├─► jaeger-collector ─► Jaeger (all-in-one) ─► jaeger-query :16686 (UI)
-  bankobs fleet  ─OTLP 4317─┘      observability ns                        NodePort 31686 -> host :16686
+  bankobs fleet  ─OTLP 4317─┘      monitoring ns                        NodePort 31686 -> host :16686
    (already instrumented)
 ```
 
@@ -69,7 +69,7 @@ trace in the list — useful again when sampling comes up in 2.3.9.
 ## Run
 
 ```bash
-make            # deploy Jaeger into observability AND seed sample traces
+make            # deploy Jaeger into monitoring AND seed sample traces
 make verify     # confirm traces are landing
 make ui         # print the Jaeger URL  ->  Service = upi-service  ->  Find Traces
 ```
@@ -101,12 +101,12 @@ by cause, sized by duration — is the whole of section 2.3.1.
 ## Seeing the LIVE fleet (not just the samples)
 
 The sample traces always work. To also see bankobs's **own** traces, the fleet must export
-to **`jaeger-collector.observability.svc:4317`**. If `make verify` shows only the five
+to **`jaeger-collector.monitoring.svc:4317`**. If `make verify` shows only the five
 sample services, point the fleet there by setting the standard OTLP env (adjust to how
 bankobs is deployed):
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector.observability.svc:4317
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger-collector.monitoring.svc:4317
 OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 ```
 

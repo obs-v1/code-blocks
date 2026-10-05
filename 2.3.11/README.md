@@ -1,4 +1,4 @@
-# 2.3.10 — Lab: two services, one trace
+# 2.3.11 — Lab: two services, one trace
 
 Two tiny services — `service-a` (frontend) calls `service-b` (backend) — and you
 **watch the `traceparent` header cross the wire** between them, then confirm in

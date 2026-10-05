@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2.3.10 cross-check: propagation verified end to end — one trace contains BOTH
+# 2.3.11 cross-check: propagation verified end to end — one trace contains BOTH
 # services, and the traceparent that leaves the frontend is the one the backend
 # receives (same trace id, different span id).
 # Usage: ./verify.sh [JAEGER_URL]   (default http://localhost:16686)

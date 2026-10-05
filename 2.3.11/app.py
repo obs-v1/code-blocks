@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""2.3.10 lab — one tiny app that plays FRONTEND or BACKEND by $ROLE.
+"""2.3.11 lab — one tiny app that plays FRONTEND or BACKEND by $ROLE.
    Both create a span and export to Jaeger over OTLP. The point of the lab is
    visible in the logs: the FRONTEND prints the traceparent it SENDS, the
    BACKEND prints the traceparent it RECEIVES — the same trace id crossing the

@@ -1,4 +1,4 @@
-# 2.3.10 lab — Jaeger all-in-one (collector + query + UI, in-memory storage).
+# 2.3.11 lab — Jaeger all-in-one (collector + query + UI, in-memory storage).
 # OTLP enabled so services can export straight to it on 4317/4318.
 apiVersion: apps/v1
 kind: Deployment

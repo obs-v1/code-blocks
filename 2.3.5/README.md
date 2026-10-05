@@ -32,7 +32,7 @@ Every span is tagged `demo.scenario=broken|fixed` and carries the actual header 
 
 ## Prereqs
 
-- The Jaeger from **`code-blocks/2.3.1`** already running (`observability` namespace).
+- The Jaeger from **`code-blocks/2.3.1`** already running (`monitoring` namespace).
 - `kubectl`, `jq`, `openssl`.
 
 ## Run
@@ -88,4 +88,4 @@ make clean      # restarts Jaeger to wipe its in-memory store (also clears 2.3.1
 
 These traces are **seeded** — they illustrate the *outcome* (split vs joined) and carry the
 header values as tags. To watch a real `traceparent` cross the wire between two live
-services, that's the **2.3.11** lab (`code-blocks/2.3`).
+services, that's the **2.3.11** lab (`code-blocks/2.3.11`).
