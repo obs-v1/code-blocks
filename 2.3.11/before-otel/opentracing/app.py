@@ -16,13 +16,17 @@ log = logging.getLogger("svc")
 ROLE = os.environ.get("ROLE", "backend")
 SERVICE = os.environ.get("SERVICE_NAME", "ot-" + ("frontend" if ROLE == "frontend" else "backend"))
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8080/work")
+# jaeger-client (4.8.0) exports only via the UDP AGENT (compact thrift, :6831) — it has no
+# HTTP-collector support. The all-in-one Jaeger runs that agent; we point at it here.
+AGENT_HOST = os.environ.get("JAEGER_AGENT_HOST", "jaeger-collector.tracing.svc")
+AGENT_PORT = int(os.environ.get("JAEGER_AGENT_PORT", "6831"))
 
 
 def init_tracer(service):
-    # const sampler = keep everything. The reporter sends batched Thrift over HTTP to the
-    # collector named by JAEGER_ENDPOINT (set in the Deployment) — the legacy :14268 ingest.
+    # const sampler = keep everything; report over UDP to the Jaeger agent at :6831.
     config = Config(
         config={"sampler": {"type": "const", "param": 1},
+                "local_agent": {"reporting_host": AGENT_HOST, "reporting_port": AGENT_PORT},
                 "reporter_batch_size": 1, "logging": True},
         service_name=service, validate=True,
     )

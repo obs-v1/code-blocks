@@ -9,7 +9,7 @@
 frontend (ot-frontend)  --HTTP + uber-trace-id-->  backend (ot-backend)
    start_active_span                                   extract(HTTP_HEADERS)
    inject(HTTP_HEADERS)                                start_active_span(child_of=...)
-          └──────────── both report to the lab Jaeger (:14268) ───────────┘
+          └──────────── both report to the lab Jaeger agent (:6831) ───────────┘
                          one trace_id, two services
 ```
 

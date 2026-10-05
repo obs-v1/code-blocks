@@ -17,12 +17,12 @@ log = logging.getLogger("svc")
 ROLE = os.environ.get("ROLE", "backend")
 SERVICE = os.environ.get("SERVICE_NAME", "oc-" + ("frontend" if ROLE == "frontend" else "backend"))
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8080/work")
-JAEGER_HOST = os.environ.get("JAEGER_COLLECTOR_HOST", "jaeger-collector.tracing.svc")
-JAEGER_PORT = int(os.environ.get("JAEGER_COLLECTOR_PORT", "14268"))
+# opencensus-ext-jaeger 0.7.1 exports via the UDP AGENT (compact thrift, :6831) by default.
+# The all-in-one Jaeger runs that agent; we point at it here.
+AGENT_HOST = os.environ.get("JAEGER_AGENT_HOST", "jaeger-collector.tracing.svc")
+AGENT_PORT = int(os.environ.get("JAEGER_AGENT_PORT", "6831"))
 
-# the exporter posts Thrift batches to http://<host>:<port>/api/traces (the legacy collector)
-exporter = JaegerExporter(service_name=SERVICE, collector_host_name=JAEGER_HOST,
-                          collector_port=JAEGER_PORT, collector_endpoint="/api/traces")
+exporter = JaegerExporter(service_name=SERVICE, agent_host_name=AGENT_HOST, agent_port=AGENT_PORT)
 # auto-instrument outgoing HTTP so the context rides to the backend
 config_integration.trace_integrations(["requests"])
 

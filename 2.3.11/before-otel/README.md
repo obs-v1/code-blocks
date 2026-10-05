@@ -35,19 +35,19 @@ lesson in 2.3.5); OpenCensus already speaks **W3C `traceparent`** (it helped sha
 ## Run
 
 Both apps report to the **same Jaeger as the OTel lab** one level up — a Jaeger backend speaks
-modern **OTLP** *and* legacy **Thrift** (`:14268`), so `service-a`/`service-b` (OTLP) and
+modern **OTLP** *and* the legacy **UDP agent** (`:6831`), so `service-a`/`service-b` (OTLP) and
 `ot-*`/`oc-*` (Thrift) all land in **one UI on `:16686`**. Bring up both at once from *this*
 folder:
 
 ```bash
-make          # ensure the lab Jaeger (with :14268) is up, deploy both apps, send traffic
+make          # ensure the lab Jaeger (with the legacy agent :6831) is up, deploy both apps, send traffic
 make verify   # PASS for both
 make ui       # the shared Jaeger (http://<box-ip>:16686)
 make traffic  # re-send a burst any time (no standing driver pod)
 ```
 
 > Lightweight by design: **no second Jaeger and no standing driver pod**. `make` applies the
-> OTel lab's `../jaeger.yaml` (which now also exposes the legacy `:14268` port), deploys the
+> OTel lab's `../jaeger.yaml` (which now also exposes the legacy agent `:6831`), deploys the
 > four app pods, and sends one burst of traffic via a port-forward. Reusing the one Jaeger is
 > also why everything is viewable at the single reachable `:16686`.
 
@@ -64,7 +64,8 @@ have OpenTelemetry" version — same shape, one standard, any backend.
 ## Honest note: these libraries are EOL
 
 `jaeger-client`, `opentracing`, and the `opencensus-ext-*` packages are **archived**. They are
-pinned to known-good versions on `python:3.9-slim`, and use the Thrift **HTTP** collector
-(`:14268`, not UDP) for reliability in kind. If a transitive dependency shifts and a build
-fails, the **source code is still the lesson** — adjust the pin in that folder's `Dockerfile`.
+pinned to known-good versions on `python:3.9-slim`, and export over the native **UDP agent**
+(`:6831`) these EOL clients default to (jaeger-client 4.8.0 has no HTTP-collector support at
+all). If a transitive dependency shifts and a build fails, the **source code is still the
+lesson** — adjust the pin in that folder's `Dockerfile`.
 In production you would not reach for these today; you'd use OpenTelemetry. That's the point.

@@ -1,5 +1,5 @@
 # before-otel / OpenCensus — two services. frontend -> backend, context
-# propagated by OpenCensus (traceparent). Reports to the the lab Jaeger on :14268.
+# propagated by OpenCensus (traceparent). Reports to the lab Jaeger agent on :6831.
 # Service names oc-frontend / oc-backend keep it distinct from the OpenTracing demo.
 apiVersion: v1
 kind: Namespace
@@ -21,8 +21,7 @@ spec:
           env:
             - { name: ROLE, value: "backend" }
             - { name: SERVICE_NAME, value: "oc-backend" }
-            - { name: JAEGER_COLLECTOR_HOST, value: "jaeger-collector.tracing.svc" }
-            - { name: JAEGER_COLLECTOR_PORT, value: "14268" }
+            - { name: JAEGER_AGENT_HOST, value: "jaeger-collector.tracing.svc" }
           ports: [ { containerPort: 8080 } ]
 ---
 apiVersion: v1
@@ -49,8 +48,7 @@ spec:
             - { name: ROLE, value: "frontend" }
             - { name: SERVICE_NAME, value: "oc-frontend" }
             - { name: BACKEND_URL, value: "http://backend.ocensus.svc:8080/work" }
-            - { name: JAEGER_COLLECTOR_HOST, value: "jaeger-collector.tracing.svc" }
-            - { name: JAEGER_COLLECTOR_PORT, value: "14268" }
+            - { name: JAEGER_AGENT_HOST, value: "jaeger-collector.tracing.svc" }
           ports: [ { containerPort: 8080 } ]
 ---
 apiVersion: v1

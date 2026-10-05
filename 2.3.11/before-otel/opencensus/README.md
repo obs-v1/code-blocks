@@ -9,7 +9,7 @@ traces to the shared Jaeger.
 frontend (oc-frontend)  --HTTP + traceparent-->  backend (oc-backend)
    FlaskMiddleware (span)                            FlaskMiddleware (extract -> child)
    requests integration (inject)
-          └──────────── both report to the lab Jaeger (:14268) ───────────┘
+          └──────────── both report to the lab Jaeger agent (:6831) ───────────┘
                          one trace_id, two services
 ```
 

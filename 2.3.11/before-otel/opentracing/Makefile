@@ -3,7 +3,7 @@
 # to the SAME Jaeger as the OTel lab (one backend speaks OTLP + legacy Thrift) — so ot-*/oc-*
 # traces show up next to service-a/service-b in the one UI on :16686.
 #
-#   make          ensure the lab Jaeger (with :14268) is up, deploy frontend/backend, send traffic
+#   make          ensure the lab Jaeger (with the legacy agent :6831) is up, deploy frontend/backend, send traffic
 #   make traffic  fire a burst of requests at the frontend (generates traces)
 #   make watch    tail the logs: same uber-trace-id leaves frontend, arrives at backend
 #   make verify   prove one trace spans ot-frontend AND ot-backend
@@ -23,7 +23,7 @@ image: ## build the OpenTracing/jaeger-client image and load it into kind
 	docker build -t $(IMG) .
 	kind load docker-image $(IMG) --name $$(kind get clusters | head -1)
 
-deploy: ## ensure the lab Jaeger (with legacy :14268) is up, then frontend/backend
+deploy: ## ensure the lab Jaeger (with the legacy agent :6831) is up, then frontend/backend
 	kubectl apply -f ../../jaeger.yaml
 	kubectl -n $(JNS) rollout status deploy/jaeger --timeout=120s
 	kubectl apply -f services.yaml

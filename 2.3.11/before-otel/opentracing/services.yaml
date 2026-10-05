@@ -1,6 +1,6 @@
 # before-otel / OpenTracing — two services from one image. frontend -> backend,
 # context propagated via OpenTracing's jaeger-client (uber-trace-id). Both report to the
-# the lab Jaeger on :14268 (JAEGER_ENDPOINT). Service names ot-frontend / ot-backend
+# the lab Jaeger agent on :6831 (JAEGER_AGENT_HOST). Service names ot-frontend / ot-backend
 # keep this distinct from the OpenCensus demo in the same Jaeger UI.
 apiVersion: v1
 kind: Namespace
@@ -22,7 +22,7 @@ spec:
           env:
             - { name: ROLE, value: "backend" }
             - { name: SERVICE_NAME, value: "ot-backend" }
-            - { name: JAEGER_ENDPOINT, value: "http://jaeger-collector.tracing.svc:14268/api/traces" }
+            - { name: JAEGER_AGENT_HOST, value: "jaeger-collector.tracing.svc" }
           ports: [ { containerPort: 8080 } ]
 ---
 apiVersion: v1
@@ -49,7 +49,7 @@ spec:
             - { name: ROLE, value: "frontend" }
             - { name: SERVICE_NAME, value: "ot-frontend" }
             - { name: BACKEND_URL, value: "http://backend.otracing.svc:8080/work" }
-            - { name: JAEGER_ENDPOINT, value: "http://jaeger-collector.tracing.svc:14268/api/traces" }
+            - { name: JAEGER_AGENT_HOST, value: "jaeger-collector.tracing.svc" }
           ports: [ { containerPort: 8080 } ]
 ---
 apiVersion: v1

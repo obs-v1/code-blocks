@@ -2,7 +2,7 @@
 # one level up. A Jaeger backend speaks modern OTLP AND legacy Thrift, so service-a/service-b
 # (OTLP) and ot-*/oc-* (Thrift) all land in ONE UI (:16686).
 #
-#   make          ensure the lab Jaeger (with :14268) is up, deploy both apps, send traffic
+#   make          ensure the lab Jaeger (with the legacy agent :6831) is up, deploy both apps, send traffic
 #   make traffic  fire a burst at both frontends (generates traces)
 #   make verify   prove propagation worked for both
 #   make ui       print the Jaeger URL (shared with the OTel lab)
@@ -22,7 +22,7 @@ all: jaeger ot oc traffic ## both apps up on the shared Jaeger, traffic sent
 	@echo "      oc-frontend / oc-backend     (OpenCensus, traceparent)"
 	@echo "    re-send traffic any time with  make traffic"
 
-jaeger: ## ensure the lab Jaeger (OTLP + legacy :14268) is up
+jaeger: ## ensure the lab Jaeger (OTLP + legacy agent :6831) is up
 	kubectl apply -f ../jaeger.yaml
 	kubectl -n $(JNS) rollout status deploy/jaeger --timeout=120s
 

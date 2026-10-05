@@ -23,7 +23,8 @@ spec:
             - { containerPort: 16686 }   # UI
             - { containerPort: 4317 }     # OTLP gRPC
             - { containerPort: 4318 }     # OTLP HTTP
-            - { containerPort: 14268 }    # legacy collector: Thrift over HTTP (before-otel apps)
+            - { containerPort: 14268 }    # legacy collector: Thrift over HTTP
+            - { containerPort: 6831, protocol: UDP }   # legacy AGENT: compact thrift (before-otel apps)
 ---
 apiVersion: v1
 kind: Service
@@ -33,9 +34,10 @@ metadata:
 spec:
   selector: { app: jaeger }
   ports:
-    - { name: otlp-grpc,   port: 4317,  targetPort: 4317 }
-    - { name: otlp-http,   port: 4318,  targetPort: 4318 }
-    - { name: thrift-http, port: 14268, targetPort: 14268 }   # before-otel apps post here
+    - { name: otlp-grpc,     port: 4317,  targetPort: 4317 }
+    - { name: otlp-http,     port: 4318,  targetPort: 4318 }
+    - { name: thrift-http,   port: 14268, targetPort: 14268 }
+    - { name: agent-compact, port: 6831,  targetPort: 6831, protocol: UDP }   # before-otel apps (UDP agent)
 ---
 apiVersion: v1
 kind: Service
