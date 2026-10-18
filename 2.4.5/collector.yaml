@@ -1,0 +1,63 @@
+# 2.4.5 — Collector (DaemonSet) routes TRACES to Jaeger.
+# The apps push OTLP spans to the Collector; the Collector forwards them to Jaeger's
+# own OTLP receiver. (Apps no longer talk to Jaeger directly — the Collector does,
+# so you could swap Jaeger for Tempo by changing ONE line here, no app change.)
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: otel-collector-config, namespace: otel24 }
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }
+          http: { endpoint: 0.0.0.0:4318 }
+    processors:
+      batch: { timeout: 2s }
+    exporters:
+      otlp/jaeger:
+        endpoint: jaeger-collector.otel24.svc:4317
+        tls: { insecure: true }
+      debug: { verbosity: basic }
+    service:
+      telemetry:
+        metrics: { address: 0.0.0.0:8888 }
+      pipelines:
+        traces:
+          receivers:  [otlp]
+          processors: [batch]
+          exporters:  [otlp/jaeger, debug]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: { name: otel-collector, namespace: otel24, labels: { app: otel-collector } }
+spec:
+  selector: { matchLabels: { app: otel-collector } }
+  template:
+    metadata: { labels: { app: otel-collector } }
+    spec:
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.109.0
+          args: ["--config=/conf/config.yaml"]
+          volumeMounts: [ { name: cfg, mountPath: /conf } ]
+          ports:
+            - { containerPort: 4317, name: otlp-grpc }
+            - { containerPort: 4318, name: otlp-http }
+            - { containerPort: 8888, name: self-metrics }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: otel-collector-config }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: otel-collector, namespace: otel24 }
+spec:
+  selector: { app: otel-collector }
+  ports:
+    - { name: otlp-grpc,    port: 4317, targetPort: 4317 }
+    - { name: otlp-http,    port: 4318, targetPort: 4318 }
+    - { name: self-metrics, port: 8888, targetPort: 8888 }

@@ -1,0 +1,46 @@
+# 2.4.3 — a minimal Prometheus that ACCEPTS remote-write (push) from the Collector.
+# The one non-default flag is --web.enable-remote-write-receiver; without it,
+# Prometheus only scrapes (pulls) and rejects the Collector's writes.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: prometheus-config, namespace: otel24 }
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    # no scrape_configs — this Prometheus receives metrics by remote-write instead.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: prometheus, namespace: otel24, labels: { app: prometheus } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: prometheus } }
+  template:
+    metadata: { labels: { app: prometheus } }
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.54.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-remote-write-receiver     # <-- accept the Collector's push
+            - --web.enable-lifecycle
+          volumeMounts:
+            - { name: cfg, mountPath: /etc/prometheus }
+          ports: [ { containerPort: 9090 } ]
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: prometheus-config }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: prometheus, namespace: otel24 }
+spec:
+  # ClusterIP + port-forward (no NodePort) so this lab coexists with the others.
+  selector: { app: prometheus }
+  ports: [ { name: http, port: 9090, targetPort: 9090 } ]

@@ -1,0 +1,64 @@
+# 2.4.4 — a minimal single-binary Loki 3.x. Loki 3.x ingests OTLP natively at
+# /otlp (so the Collector's otlphttp exporter can push straight to it) and promotes
+# resource attributes like k8s.namespace.name to stream labels.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: loki-config, namespace: otel24 }
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore: { store: inmemory }
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index: { prefix: index_, period: 24h }
+    limits_config:
+      allow_structured_metadata: true
+      volume_enabled: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: loki, namespace: otel24, labels: { app: loki } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: loki } }
+  template:
+    metadata: { labels: { app: loki } }
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:3.1.1
+          args: ["-config.file=/etc/loki/loki.yaml"]
+          volumeMounts:
+            - { name: cfg, mountPath: /etc/loki }
+            - { name: data, mountPath: /loki }
+          ports: [ { containerPort: 3100 } ]
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: loki-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: loki, namespace: otel24 }
+spec:
+  selector: { app: loki }
+  ports: [ { name: http, port: 3100, targetPort: 3100 } ]

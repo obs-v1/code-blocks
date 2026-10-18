@@ -1,0 +1,66 @@
+# 2.4.4 — Collector (DaemonSet) ships LOGS to Loki.
+#
+# This is why the Collector is a DaemonSet: the `filelog` receiver TAILS the
+# node-local pod log files (/var/log/pods/...). The app just writes JSON to stdout
+# (no logging SDK) — the Collector reads those lines, attaches k8s metadata, and
+# sends them to Loki over OTLP (Loki 3.x has a native /otlp endpoint).
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: otel-collector, namespace: otel24 }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: otel-collector-config, namespace: otel24 }
+data:
+  config.yaml: |
+    receivers:
+      filelog:
+        # only the APP pods (service-a / service-b). Scoping here avoids tailing
+        # Loki/Collector's own logs — which would create a shipping feedback loop.
+        include: [ /var/log/pods/otel24_service-*/*/*.log ]
+        include_file_path: true
+        operators:
+          - type: container       # parse the CRI/container log format + pull
+                                  # k8s.namespace.name / pod / container off the path
+    processors:
+      batch: { timeout: 2s }
+    exporters:
+      otlphttp/loki:
+        endpoint: http://loki.otel24.svc:3100/otlp   # Loki 3.x native OTLP ingest
+        tls: { insecure: true }
+      debug: { verbosity: basic }
+    service:
+      telemetry:
+        metrics: { address: 0.0.0.0:8888 }
+      pipelines:
+        logs:
+          receivers:  [filelog]
+          processors: [batch]
+          exporters:  [otlphttp/loki, debug]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: { name: otel-collector, namespace: otel24, labels: { app: otel-collector } }
+spec:
+  selector: { matchLabels: { app: otel-collector } }
+  template:
+    metadata: { labels: { app: otel-collector } }
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.109.0
+          args: ["--config=/conf/config.yaml"]
+          securityContext: { runAsUser: 0 }        # read root-owned /var/log/pods
+          volumeMounts:
+            - { name: cfg, mountPath: /conf }
+            - { name: varlogpods, mountPath: /var/log/pods, readOnly: true }
+          ports: [ { containerPort: 8888, name: self-metrics } ]
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: otel-collector-config }
+        - name: varlogpods
+          hostPath: { path: /var/log/pods }

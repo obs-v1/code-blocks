@@ -1,0 +1,78 @@
+# 2.4.4 — the apps just WRITE JSON to stdout (no logging SDK, no OTLP). The
+# Collector's filelog receiver tails those lines off the node. A driver loops calls
+# so there's a steady stream of log lines (each already carries its trace_id).
+apiVersion: v1
+kind: Namespace
+metadata: { name: otel24 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-b, namespace: otel24 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-b } }
+  template:
+    metadata: { labels: { app: service-b } }
+    spec:
+      containers:
+        - name: app
+          image: otel24-app:1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "backend" }
+            - { name: OTEL_SERVICE_NAME, value: "service-b" }
+            - { name: OTEL_TRACES_EXPORTER,  value: "none" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER,    value: "none" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-b, namespace: otel24 }
+spec:
+  selector: { app: service-b }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: service-a, namespace: otel24 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: service-a } }
+  template:
+    metadata: { labels: { app: service-a } }
+    spec:
+      containers:
+        - name: app
+          image: otel24-app:1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "frontend" }
+            - { name: BACKEND_URL, value: "http://service-b.otel24.svc:8080/work" }
+            - { name: OTEL_SERVICE_NAME, value: "service-a" }
+            - { name: OTEL_TRACES_EXPORTER,  value: "none" }
+            - { name: OTEL_METRICS_EXPORTER, value: "none" }
+            - { name: OTEL_LOGS_EXPORTER,    value: "none" }
+          ports: [ { containerPort: 8080 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: service-a, namespace: otel24 }
+spec:
+  selector: { app: service-a }
+  ports: [ { port: 8080, targetPort: 8080 } ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: driver, namespace: otel24 }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: driver } }
+  template:
+    metadata: { labels: { app: driver } }
+    spec:
+      containers:
+        - name: driver
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh","-c"]
+          args: ["while true; do curl -s http://service-a.otel24.svc:8080/call >/dev/null; sleep 0.5; done"]

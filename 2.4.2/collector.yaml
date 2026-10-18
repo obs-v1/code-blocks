@@ -1,0 +1,68 @@
+# 2.4.2 — the OpenTelemetry Collector as a DaemonSet (one agent per node).
+#
+# WHY a DaemonSet (not a single Deployment)? A node-agent sits next to the pods
+# on its own node — the shortest hop for their telemetry, and the only shape that
+# can read node-local pod log files (used in 2.4.4). A stable Service in front of
+# the agents lets apps always reach "otel-collector.otel24.svc:4317" regardless
+# of which node they land on. (This kind cluster has one node = one agent.)
+#
+# This first step just RECEIVES OTLP and prints it with the `debug` exporter — no
+# backend yet. 2.4.3/2.4.4/2.4.5 swap the exporter for Prometheus / Loki / Jaeger.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: otel-collector-config, namespace: otel24 }
+data:
+  config.yaml: |
+    receivers:
+      otlp:                                 # apps push traces/metrics/logs here
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }  # OTLP/gRPC
+          http: { endpoint: 0.0.0.0:4318 }  # OTLP/HTTP
+    processors:
+      batch: { timeout: 2s }                # group signals before exporting
+    exporters:
+      debug:                                # print a summary of everything received
+        verbosity: normal
+    service:
+      telemetry:
+        metrics:
+          address: 0.0.0.0:8888             # the Collector's OWN metrics (accepted/sent counts)
+      pipelines:
+        traces:  { receivers: [otlp], processors: [batch], exporters: [debug] }
+        metrics: { receivers: [otlp], processors: [batch], exporters: [debug] }
+        logs:    { receivers: [otlp], processors: [batch], exporters: [debug] }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: { name: otel-collector, namespace: otel24, labels: { app: otel-collector } }
+spec:
+  selector: { matchLabels: { app: otel-collector } }
+  template:
+    metadata: { labels: { app: otel-collector } }
+    spec:
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.109.0
+          args: ["--config=/conf/config.yaml"]
+          volumeMounts:
+            - { name: cfg, mountPath: /conf }
+          ports:
+            - { containerPort: 4317, name: otlp-grpc }
+            - { containerPort: 4318, name: otlp-http }
+            - { containerPort: 8888, name: self-metrics }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: cfg
+          configMap: { name: otel-collector-config }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: otel-collector, namespace: otel24 }
+spec:
+  selector: { app: otel-collector }
+  ports:
+    - { name: otlp-grpc,    port: 4317, targetPort: 4317 }
+    - { name: otlp-http,    port: 4318, targetPort: 4318 }
+    - { name: self-metrics, port: 8888, targetPort: 8888 }
