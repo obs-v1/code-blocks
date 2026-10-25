@@ -1,0 +1,58 @@
+# kube-prometheus-stack values for the SLO lab.
+# Why this stack (not the course's usual prometheus-community/prometheus): Pyrra's
+# operator generates PrometheusRule CRDs, which only the Prometheus OPERATOR consumes.
+# kube-prometheus-stack bundles the Operator + Prometheus + Alertmanager + Grafana.
+
+fullnameOverride: kps
+
+# Make Prometheus pick up EVERY ServiceMonitor and PrometheusRule in the cluster,
+# regardless of labels — so our app's ServiceMonitor and Pyrra's generated rules are
+# found with no label juggling. (In production you scope these with selectors.)
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    retention: 2h
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+  service:
+    type: NodePort
+    nodePort: 30909          # -> kind hostPort 9090
+
+alertmanager:
+  service:
+    type: NodePort
+    nodePort: 30993          # -> kind hostPort 9093
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+
+grafana:
+  adminUser: admin
+  adminPassword: admin
+  service:
+    type: NodePort
+    nodePort: 30300          # -> kind hostPort 3000
+  # The sidecar auto-loads any ConfigMap labelled grafana_dashboard="1" — that's how
+  # grafana-dashboard.yaml (our SLO dashboard) gets in with no manual import.
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+
+# Trim pieces this lab doesn't teach, to keep a kind node light.
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: false
+kubeApiServer:       { enabled: false }
+kubelet:             { enabled: true }
+kubeControllerManager: { enabled: false }
+kubeScheduler:       { enabled: false }
+kubeProxy:           { enabled: false }
+kubeEtcd:            { enabled: false }
+defaultRules:
+  create: false      # we only want OUR SLO's rules, not the whole k8s alert set

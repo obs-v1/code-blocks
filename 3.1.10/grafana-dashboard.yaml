@@ -1,0 +1,84 @@
+# A Grafana SLO dashboard for the demo-app, auto-loaded by the kube-prometheus-stack
+# Grafana sidecar (it watches ConfigMaps labelled grafana_dashboard="1"). This shows the
+# SAME SLO as Pyrra, but built from raw PromQL in Grafana — so students see both the
+# purpose-built tool (Pyrra) and how to express an SLO in the dashboards they already use.
+#
+# The target (99.9%) and window (1h) below MUST match slo.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slo-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  slo-demo-app.json: |
+    {
+      "title": "SLO — demo-app availability (3.1.10)",
+      "uid": "slo-demo-app",
+      "schemaVersion": 39,
+      "editable": true,
+      "time": { "from": "now-30m", "to": "now" },
+      "refresh": "10s",
+      "templating": { "list": [
+        { "name": "ds", "type": "datasource", "query": "prometheus", "current": {}, "hide": 0, "label": "Data source" }
+      ]},
+      "panels": [
+        {
+          "type": "stat", "title": "Error budget remaining (1d window)",
+          "gridPos": { "h": 7, "w": 8, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "fieldConfig": { "defaults": {
+            "unit": "percent", "min": -100, "max": 100,
+            "thresholds": { "mode": "absolute", "steps": [
+              { "color": "red", "value": null }, { "color": "orange", "value": 10 }, { "color": "green", "value": 25 } ] } } },
+          "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${ds}" },
+            "expr": "clamp_min(100 * (1 - ( (sum(increase(http_requests_total{job=\"demo-app\",code=~\"5..\"}[1d])) or vector(0)) / clamp_min(sum(increase(http_requests_total{job=\"demo-app\"}[1d])), 1) ) / (1 - 0.999)), -100)" } ]
+        },
+        {
+          "type": "stat", "title": "Success rate (SLI, 5m)",
+          "gridPos": { "h": 7, "w": 8, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "fieldConfig": { "defaults": {
+            "unit": "percent", "decimals": 3, "min": 95, "max": 100,
+            "thresholds": { "mode": "absolute", "steps": [
+              { "color": "red", "value": null }, { "color": "green", "value": 99.9 } ] } } },
+          "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${ds}" },
+            "expr": "100 * (1 - (sum(rate(http_requests_total{job=\"demo-app\",code=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"demo-app\"}[5m])), 0.001))" } ]
+        },
+        {
+          "type": "stat", "title": "SLO target",
+          "gridPos": { "h": 7, "w": 8, "x": 16, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1,
+            "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } } },
+          "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${ds}" }, "expr": "99.9" } ]
+        },
+        {
+          "type": "timeseries", "title": "Burn rate (× the budget) — pages at 14.4×",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "fieldConfig": { "defaults": {
+            "custom": { "drawStyle": "line", "fillOpacity": 10 },
+            "thresholds": { "mode": "absolute", "steps": [ { "color": "transparent", "value": null }, { "color": "red", "value": 14.4 } ] },
+            "custom.thresholdsStyle": { "mode": "line" } } },
+          "targets": [
+            { "refId": "A", "legendFormat": "5m burn", "datasource": { "type": "prometheus", "uid": "${ds}" },
+              "expr": "( (sum(rate(http_requests_total{job=\"demo-app\",code=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"demo-app\"}[5m])), 0.001) ) / (1 - 0.999)" },
+            { "refId": "B", "legendFormat": "1h burn", "datasource": { "type": "prometheus", "uid": "${ds}" },
+              "expr": "( (sum(rate(http_requests_total{job=\"demo-app\",code=~\"5..\"}[1h])) or vector(0)) / clamp_min(sum(rate(http_requests_total{job=\"demo-app\"}[1h])), 0.001) ) / (1 - 0.999)" }
+          ]
+        },
+        {
+          "type": "timeseries", "title": "Request rate by status",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+          "targets": [ { "refId": "A", "legendFormat": "{{code}}", "datasource": { "type": "prometheus", "uid": "${ds}" },
+            "expr": "sum by (code) (rate(http_requests_total{job=\"demo-app\"}[1m]))" } ]
+        }
+      ]
+    }
