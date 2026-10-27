@@ -1,0 +1,63 @@
+# The mock pager: a tiny HTTP server that logs every webhook Alertmanager sends it, tagged with
+# the path it arrived on. `kubectl logs deploy/mock-pager` IS the pager history — so you prove
+# routing / grouping / inhibition / silences from evidence, not faith. No image build (runs the
+# inline script on python:3.11-slim).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-pager-src
+  namespace: monitoring
+data:
+  pager.py: |
+    import http.server, json, datetime
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            n = int(self.headers.get('Content-Length', 0))
+            raw = self.rfile.read(n).decode() if n else ''
+            try:
+                p = json.loads(raw)
+                alerts = p.get('alerts', [])
+                names = [a.get('labels', {}).get('alertname', '?') for a in alerts]
+                status = p.get('status', '?')
+            except Exception:
+                names, status = ['<unparsed>'], '?'
+            ts = datetime.datetime.utcnow().strftime('%H:%M:%S')
+            # one line per NOTIFICATION; the count shows grouping (N alerts in one page)
+            print(f"{ts}  PAGE via {self.path}  status={status}  alerts=[{', '.join(names)}]  (n={len(names)})", flush=True)
+            self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
+        def log_message(self, *a): pass
+    print("mock-pager listening on :8080", flush=True)
+    http.server.HTTPServer(('0.0.0.0', 8080), H).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-pager
+  namespace: monitoring
+  labels: { app: mock-pager }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mock-pager } }
+  template:
+    metadata: { labels: { app: mock-pager } }
+    spec:
+      containers:
+        - name: pager
+          image: python:3.11-slim
+          command: ["python", "/src/pager.py"]
+          ports: [{ containerPort: 8080 }]
+          volumeMounts: [{ name: src, mountPath: /src }]
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+      volumes:
+        - name: src
+          configMap: { name: mock-pager-src }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-pager
+  namespace: monitoring
+spec:
+  selector: { app: mock-pager }
+  ports: [{ port: 8080, targetPort: 8080 }]

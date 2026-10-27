@@ -1,0 +1,97 @@
+# Prometheus for the Alertmanager lab (3.2.4). Deliberately minimal and shown in full:
+# it scrapes only itself, evaluates ONE demo alert rule, and — the point of this lab —
+# is WIRED to Alertmanager via the `alerting.alertmanagers` block in prometheus.yml.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    # ── Load the alert rules ──
+    rule_files:
+      - /etc/prometheus/rules.yml
+
+    # ── THE WIRING: send firing alerts to Alertmanager ──
+    # This is the one block that connects Prometheus to Alertmanager. Prometheus DECIDES
+    # when an alert fires; it then pushes that alert to every Alertmanager listed here,
+    # which DECIDES what happens next (group / route / inhibit / silence / dedupe — 3.2.4).
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager.monitoring.svc:9093"]
+
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+  rules.yml: |
+    groups:
+      - name: demo
+        rules:
+          # A deliberately-always-firing alert, so you can SEE the pipeline work end to end.
+          # (Real symptom-based alerting is 3.2.3; routing/inhibition/silences are 3.2.10.)
+          - alert: DemoAlwaysFiring
+            expr: vector(1)
+            for: 30s
+            labels:
+              severity: page
+              team: payments
+            annotations:
+              summary: "Demo alert — proves Prometheus is wired to Alertmanager"
+              description: "If this shows up in the Alertmanager UI, the alerting pipeline works."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels: { app: prometheus }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: prometheus } }
+  template:
+    metadata: { labels: { app: prometheus } }
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.1.0
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.enable-lifecycle"
+          ports:
+            - { name: http, containerPort: 9090 }
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9090 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus }
+            - { name: data, mountPath: /prometheus }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+      volumes:
+        - name: config
+          configMap: { name: prometheus-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels: { app: prometheus }
+spec:
+  type: NodePort
+  selector: { app: prometheus }
+  ports:
+    - { name: http, port: 9090, targetPort: 9090, nodePort: 30909 }   # -> kind hostPort 9090

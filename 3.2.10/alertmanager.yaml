@@ -1,0 +1,95 @@
+# Alertmanager with a real routing tree + inhibition, wired to the mock pager. This is the file
+# 3.2.5 (routing), 3.2.6 (templating), and 3.2.7 (inhibition/silences) are all about.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    # ── ROUTING (3.2.5): a tree. An alert enters at the root and walks down, matching on labels,
+    #    until it lands on a receiver. group_* control batching; continue:true lets one alert hit
+    #    several receivers. ──
+    route:
+      receiver: default
+      group_by: ['alertname']
+      group_wait: 5s           # hold a new group briefly so siblings batch into ONE page (grouping)
+      group_interval: 10s
+      repeat_interval: 1h
+      routes:
+        - matchers: ['severity="page"']
+          receiver: pagerduty
+          continue: true        # a page goes to PagerDuty AND keeps falling through…
+        - matchers: ['severity="page"']
+          receiver: slack        # …to a Slack mirror
+        - matchers: ['severity="ticket"']
+          receiver: jira
+
+    # ── INHIBITION (3.2.7): when the whole service is down, mute the downstream pages it caused.
+    #    Scoped by `equal: [namespace]` so a down service in one namespace can't silence another. ──
+    inhibit_rules:
+      - source_matchers: ['alertname="ServiceDown"']
+        target_matchers: ['severity="page"']
+        equal: ['namespace']
+
+    receivers:
+      - name: default
+      - name: pagerduty
+        webhook_configs:
+          - url: 'http://mock-pager:8080/pagerduty'
+            send_resolved: false
+      - name: slack
+        webhook_configs:
+          - url: 'http://mock-pager:8080/slack'
+            send_resolved: false
+      - name: jira
+        webhook_configs:
+          - url: 'http://mock-pager:8080/jira'
+            send_resolved: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels: { app: alertmanager }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: alertmanager } }
+  template:
+    metadata: { labels: { app: alertmanager } }
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.28.0
+          args:
+            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+          ports: [{ name: http, containerPort: 9093 }]
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9093 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/alertmanager }
+            - { name: data, mountPath: /alertmanager }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+      volumes:
+        - name: config
+          configMap: { name: alertmanager-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels: { app: alertmanager }
+spec:
+  type: NodePort
+  selector: { app: alertmanager }
+  ports:
+    - { name: http, port: 9093, targetPort: 9093, nodePort: 30993 }   # -> kind hostPort 9093

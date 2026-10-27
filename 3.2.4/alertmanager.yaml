@@ -1,0 +1,70 @@
+# Alertmanager for 3.2.4. The whole config is the alertmanager.yml below — this is the file
+# you'll expand in 3.2.5–3.2.7 (routing tree, inhibition, silences). For the install lab it's
+# the minimum: one route and one receiver. Alerts appear in the UI regardless of receiver.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    # The routing tree: where alerts go. Here, everything lands on one receiver.
+    route:
+      receiver: default
+      group_by: ['alertname']
+      group_wait: 10s          # hold a new group briefly so siblings batch together
+      group_interval: 1m       # wait before sending an update for a changed group
+      repeat_interval: 1h      # re-notify an unresolved alert at most this often
+
+    receivers:
+      # A null receiver — it accepts alerts but notifies nowhere. Perfect for the install lab:
+      # you still SEE every alert in the Alertmanager UI. In 3.2.10 you add a real receiver.
+      - name: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels: { app: alertmanager }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: alertmanager } }
+  template:
+    metadata: { labels: { app: alertmanager } }
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.28.0
+          args:
+            - "--config.file=/etc/alertmanager/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+          ports:
+            - { name: http, containerPort: 9093 }
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9093 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/alertmanager }
+            - { name: data, mountPath: /alertmanager }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+      volumes:
+        - name: config
+          configMap: { name: alertmanager-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager          # Prometheus reaches it at alertmanager.monitoring.svc:9093
+  namespace: monitoring
+  labels: { app: alertmanager }
+spec:
+  type: NodePort
+  selector: { app: alertmanager }
+  ports:
+    - { name: http, port: 9093, targetPort: 9093, nodePort: 30993 }   # -> kind hostPort 9093
