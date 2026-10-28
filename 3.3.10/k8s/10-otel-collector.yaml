@@ -1,0 +1,77 @@
+# The OTel Collector is the hub for THREE of the four signals: apps send OTLP
+# (traces + metrics + logs) here, and it fans them out to Jaeger, Prometheus and
+# Loki. (Profiles skip the Collector — the Pyroscope SDK pushes them directly.)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: monitoring
+data:
+  collector.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: { endpoint: 0.0.0.0:4317 }
+          http: { endpoint: 0.0.0.0:4318 }
+
+    processors:
+      batch: {}
+
+    exporters:
+      # traces → Jaeger (OTLP in)
+      otlp/jaeger:
+        endpoint: jaeger:4317
+        tls: { insecure: true }
+      # metrics → Prometheus remote-write (carries exemplars = the metric→trace join)
+      prometheusremotewrite:
+        endpoint: http://prometheus:9090/api/v1/write
+        tls: { insecure: true }
+      # logs → Loki native OTLP endpoint
+      otlphttp/loki:
+        endpoint: http://loki:3100/otlp
+        tls: { insecure: true }
+
+    service:
+      pipelines:
+        traces:  { receivers: [otlp], processors: [batch], exporters: [otlp/jaeger] }
+        metrics: { receivers: [otlp], processors: [batch], exporters: [prometheusremotewrite] }
+        logs:    { receivers: [otlp], processors: [batch], exporters: [otlphttp/loki] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: monitoring
+  labels: { app: otel-collector }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: otel-collector } }
+  template:
+    metadata: { labels: { app: otel-collector } }
+    spec:
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.133.0
+          args: ["--config=/etc/otel/collector.yaml"]
+          ports:
+            - { name: grpc, containerPort: 4317 }
+            - { name: http, containerPort: 4318 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/otel }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+      volumes:
+        - name: config
+          configMap: { name: otel-collector-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: monitoring
+  labels: { app: otel-collector }
+spec:
+  selector: { app: otel-collector }
+  ports:
+    - { name: grpc, port: 4317, targetPort: 4317 }
+    - { name: http, port: 4318, targetPort: 4318 }

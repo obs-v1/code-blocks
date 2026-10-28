@@ -1,0 +1,73 @@
+# The two sample services. Images are built on the box and `kind load`-ed, so
+# imagePullPolicy is IfNotPresent (use the loaded image, never pull from a registry).
+#
+# Fault injection lives on the WORKER as env (BURN_LOOPS, ERROR_RATE). `make fault`
+# flips them with `kubectl set env`; `make heal` resets them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: monitoring
+  labels: { app: gateway }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: gateway } }
+  template:
+    metadata: { labels: { app: gateway } }
+    spec:
+      containers:
+        - name: gateway
+          image: gateway:lab
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector:4317" }
+            - { name: PYROSCOPE_SERVER, value: "http://pyroscope:4040" }
+            - { name: WORKER_URL, value: "http://worker:8080/process" }
+          ports: [{ name: http, containerPort: 8000 }]
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: monitoring
+  labels: { app: gateway }
+spec:
+  selector: { app: gateway }
+  ports: [{ name: http, port: 8000, targetPort: 8000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: monitoring
+  labels: { app: worker }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: worker } }
+  template:
+    metadata: { labels: { app: worker } }
+    spec:
+      containers:
+        - name: worker
+          image: worker:lab
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel-collector:4317" }
+            - { name: PYROSCOPE_SERVER, value: "http://pyroscope:4040" }
+            - { name: BURN_LOOPS, value: "20000" }    # healthy baseline
+            - { name: ERROR_RATE, value: "0" }        # healthy baseline
+          ports: [{ name: http, containerPort: 8080 }]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+  namespace: monitoring
+  labels: { app: worker }
+spec:
+  selector: { app: worker }
+  ports: [{ name: http, port: 8080, targetPort: 8080 }]

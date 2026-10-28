@@ -1,0 +1,74 @@
+# Loki — the log backend. Raw single-binary deploy (not the Helm chart) so we
+# control the mounts: /loki is a WRITABLE emptyDir, which sidesteps the classic
+# "mkdir /loki: read-only file system" crash the chart hits on a read-only root.
+# Native OTLP ingestion (/otlp) is on by default in Loki 3.x.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  namespace: monitoring
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore: { store: inmemory }
+    schema_config:
+      configs:
+        - from: 2024-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index: { prefix: index_, period: 24h }
+    limits_config:
+      allow_structured_metadata: true   # required for OTLP trace_id as structured metadata
+      volume_enabled: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: monitoring
+  labels: { app: loki }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: loki } }
+  template:
+    metadata: { labels: { app: loki } }
+    spec:
+      containers:
+        - name: loki
+          image: grafana/loki:3.3.2
+          args: ["-config.file=/etc/loki/loki.yaml"]
+          ports: [{ name: http, containerPort: 3100 }]
+          volumeMounts:
+            - { name: config, mountPath: /etc/loki }
+            - { name: data,   mountPath: /loki }
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+      volumes:
+        - name: config
+          configMap: { name: loki-config }
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: monitoring
+  labels: { app: loki }
+spec:
+  type: NodePort
+  selector: { app: loki }
+  ports:
+    - { name: http, port: 3100, targetPort: 3100, nodePort: 30310 }   # → kind host 3100

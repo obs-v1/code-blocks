@@ -1,0 +1,22 @@
+# A steady trickle of checkouts so there is always fresh telemetry to pivot on.
+# Two replicas keep the histograms populated without hammering the node.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: monitoring
+  labels: { app: loadgen }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: loadgen } }
+  template:
+    metadata: { labels: { app: loadgen } }
+    spec:
+      containers:
+        - name: loadgen
+          image: curlimages/curl:8.11.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - "while true; do curl -s -o /dev/null http://gateway:8000/checkout || true; sleep 0.3; done"
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
